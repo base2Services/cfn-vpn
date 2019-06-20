@@ -39,7 +39,7 @@ module CfnVpn
     end
 
     def write_config
-      config_file = "#{@config_dir}/#{@name}.opvn"
+      config_file = "#{@config_dir}/#{@name}.ovpn"
       File.write(config_file, @config)
       say "created config #{config_file}", :green
     end
