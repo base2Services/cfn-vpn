@@ -1,0 +1,4 @@
+#!/usr/bin/env ruby
+require "cfnvpn"
+
+CfnVpn::Cli.start( ARGV )

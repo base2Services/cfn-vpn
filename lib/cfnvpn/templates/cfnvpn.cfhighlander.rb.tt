@@ -1,0 +1,14 @@
+CfhighlanderTemplate do
+
+  Parameters do
+    ComponentParam 'EnvironmentName', '<%= @name %>'
+  end
+
+  Component template: 'client-vpn', name: 'vpn', render: Inline do
+    parameter name: 'AssociationSubnetId', value: '<%= @config['subnet_id'] %>'
+    parameter name: 'ClientCidrBlock', value: '<%= @config['cidr'] %>'
+    parameter name: 'ClientCertificateArn', value: '<%= @config['client_cert_arn'] %>'
+    parameter name: 'ServerCertificateArn', value: '<%= @config['server_cert_arn'] %>'
+  end
+
+end

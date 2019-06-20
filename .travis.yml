@@ -1,0 +1,17 @@
+sudo: required
+dist: trusty
+language: ruby
+rvm:
+  - 2.5
+script:
+  - bundle install
+  - gem build cfn-vpn.gemspec
+  - gem install cfn-vpn-*.gem
+  - cfn-vpn help
+deploy:
+  provider: rubygems
+  api_key: "${RUBYGEMS_API_KEY}"
+  gem: cfn-vpn
+  on:
+   all_branches: true
+   condition: $TRAVIS_BRANCH =~ ^develop|master &&  $TRAVIS_EVENT_TYPE =~ ^push|api$ && $TRAVIS_REPO_SLUG == "base2services/aws-client-vpn"
