@@ -1,6 +1,7 @@
 require 'thor'
 require 'cfnvpn/version'
 require 'cfnvpn/init'
+require 'cfnvpn/modify'
 require 'cfnvpn/config'
 
 module CfnVpn
@@ -13,10 +14,13 @@ module CfnVpn
     end
 
     # Initializes ciinabox configuration
-    register CfnVpn::Init, 'init', 'init [name]', 'Ciinabox configuration initialization'
+    register CfnVpn::Init, 'init', 'init [name]', 'Create a AWS Client VPN'
     tasks["init"].options = CfnVpn::Init.class_options
 
-    register CfnVpn::Config, 'config', 'config [name]', 'Ciinabox configuration initialization'
+    register CfnVpn::Modify, 'modify', 'modify [name]', 'Modify your AWS Client VPN'
+    tasks["modify"].options = CfnVpn::Modify.class_options
+
+    register CfnVpn::Config, 'config', 'config [name]', 'Retrieve the config for the AWS Client VPN'
     tasks["config"].options = CfnVpn::Config.class_options
 
   end
