@@ -11,8 +11,10 @@ module CfnVpn
 
     class_option :profile, desc: 'AWS Profile'
     class_option :region, default: ENV['AWS_REGION'], desc: 'AWS Region'
-    class_option :force, default: false, type: :boolean, desc: 'AWS Region'
     class_option :verbose, desc: 'set log level to debug', type: :boolean
+
+    class_option :key_path, required: true, desc: 'full file path to the client vpn key'
+    class_option :crt_path, required: true, desc: 'full file path to the client vpn certificate'
 
     def self.source_root
       File.dirname(__FILE__)
@@ -36,35 +38,11 @@ module CfnVpn
       @config = vpn.get_config(@endpoint_id)
     end
 
-    def download_certificate
-      ssm = CfnVpn::SSM.new(@name,@options['region'],@home_dir)
-      cert_body = ssm.get_parameter("#{@name}.crt")
-      if cert_body
-        cert = CfnVpn::Certificates.new(@home_dir,@name)
-        cert.write_certificate(cert_body,"#{@name}.crt",@options['force'])
-        Log.logger.info "downloaded client certificate #{@name}.crt"
-      else
-        Log.logger.error "unable to find client certificate #{@name}.crt"
-      end
-    end
-
-    def download_key
-      ssm = CfnVpn::SSM.new(@name,@options['region'],@home_dir)
-      cert_body = ssm.get_parameter("#{@name}.key")
-      if cert_body
-        cert = CfnVpn::Certificates.new(@home_dir,@name)
-        cert.write_certificate(cert_body,"#{@name}.key",@options['force'])
-        Log.logger.info "downloaded client key #{@name}.key"
-      else
-        Log.logger.error "unable to find client certificate #{@name}.crt"
-      end
-    end
-
     def alter_config
       string = (0...8).map { (65 + rand(26)).chr.downcase }.join
       @config.sub!(@endpoint_id, "#{string}.#{@endpoint_id}")
-      @config.concat("\n\ncert #{@config_dir}/#{@name}.crt")
-      @config.concat("\nkey #{@config_dir}/#{@name}.key\n")
+      @config.concat("\n\ncert #{@options['crt_path']}")
+      @config.concat("\nkey #{@options['key_path']}\n")
     end
 
     def write_config
