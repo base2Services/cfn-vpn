@@ -23,6 +23,7 @@ module CfnVpn
 
     class_option :subnet_id, required: true, desc: 'subnet id to associate your vpn with'
     class_option :cidr, default: '10.250.0.0/16', desc: 'cidr from which to assign client IP addresses'
+    class_option :dns_servers, desc: 'DNS Servers to push to clients.'
 
     def self.source_root
       File.dirname(__FILE__)
@@ -40,8 +41,12 @@ module CfnVpn
 
     def initialize_config
       @config = {}
-      @config['subnet_id'] = @options['subnet_id']
-      @config['cidr'] = @options['cidr']
+      @config['parameters'] = {}
+      @config['parameters']['EnvironmentName'] = @name
+      @config['parameters']['AssociationSubnetId'] = @options['subnet_id']
+      @config['parameters']['ClientCidrBlock'] = @options['cidr']
+      @config['parameters']['DnsServers'] = @options['dns_servers']
+      @config['template_version'] = '0.1.1'
     end
 
     def stack_exist
@@ -62,21 +67,19 @@ module CfnVpn
 
     def upload_certificates
       cert = CfnVpn::Certificates.new(@build_dir,@name)
-      @config['server_cert_arn'] = cert.upload_certificates(@options['region'],'server','server',@options['server_cn'])
-      @config['client_cert_arn'] = cert.upload_certificates(@options['region'],@client_cn,'client')
-      cert.store_certificate(@options['region'],"#{@client_cn}.crt")
-      cert.store_certificate(@options['region'],"#{@client_cn}.key")
+      @config['parameters']['ServerCertificateArn'] = cert.upload_certificates(@options['region'],'server','server',@options['server_cn'])
+      @config['parameters']['ClientCertificateArn'] = cert.upload_certificates(@options['region'],@client_cn,'client')
     end
 
     def deploy_vpn
-      template('templates/cfnvpn.cfhighlander.rb.tt', "#{@build_dir}/#{@name}.cfhighlander.rb", @config)
+      template('templates/cfnvpn.cfhighlander.rb.tt', "#{@build_dir}/#{@name}.cfhighlander.rb", @config, force: true)
       Log.logger.debug "Generating cloudformation from #{@build_dir}/#{@name}.cfhighlander.rb"
       cfhl = CfnVpn::CfHiglander.new(@options['region'],@name,@config,@build_dir)
       template_path = cfhl.render()
       Log.logger.debug "Cloudformation template #{template_path} generated and validated"
       Log.logger.info "Launching cloudformation stack #{@name}-cfnvpn in #{@options['region']}"
       cfn = CfnVpn::Cloudformation.new(@options['region'],@name)
-      change_set, change_set_type = cfn.create_change_set(template_path)
+      change_set, change_set_type = cfn.create_change_set(template_path, @config['parameters'])
       cfn.wait_for_changeset(change_set.id)
       cfn.execute_change_set(change_set.id)
       cfn.wait_for_execute(change_set_type)
