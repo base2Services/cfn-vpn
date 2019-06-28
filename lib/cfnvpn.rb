@@ -3,6 +3,11 @@ require 'cfnvpn/version'
 require 'cfnvpn/init'
 require 'cfnvpn/modify'
 require 'cfnvpn/config'
+require 'cfnvpn/client'
+require 'cfnvpn/revoke'
+require 'cfnvpn/sessions'
+require 'cfnvpn/routes'
+require 'cfnvpn/share'
 
 module CfnVpn
   class Cli < Thor
@@ -13,7 +18,6 @@ module CfnVpn
       puts CfnVpn::VERSION
     end
 
-    # Initializes ciinabox configuration
     register CfnVpn::Init, 'init', 'init [name]', 'Create a AWS Client VPN'
     tasks["init"].options = CfnVpn::Init.class_options
 
@@ -23,8 +27,20 @@ module CfnVpn
     register CfnVpn::Config, 'config', 'config [name]', 'Retrieve the config for the AWS Client VPN'
     tasks["config"].options = CfnVpn::Config.class_options
 
+    register CfnVpn::Client, 'client', 'client [name]', 'Create a new client certificate'
+    tasks["client"].options = CfnVpn::Client.class_options
+
+    register CfnVpn::Revoke, 'revoke', 'revoke [name]', 'Revoke a client certificate'
+    tasks["revoke"].options = CfnVpn::Revoke.class_options
+
+    register CfnVpn::Sessions, 'sessions', 'sessions [name]', 'List and kill current vpn connections'
+    tasks["sessions"].options = CfnVpn::Sessions.class_options
+
+    register CfnVpn::Routes, 'routes', 'routes [name]', 'List, add or delete client vpn routes'
+    tasks["routes"].options = CfnVpn::Routes.class_options
+
+    register CfnVpn::Share, 'share', 'share [name]', 'Provide a user with a s3 signed download for certificates and config'
+    tasks["share"].options = CfnVpn::Share.class_options
+
   end
-
-  # Aws.config[:retry_limit] = if ENV.key? 'CFNVPN_AWS_RETRY_LIMIT' then (ENV['CFNVPN_AWS_RETRY_LIMIT'].to_i) else 10 end
-
 end

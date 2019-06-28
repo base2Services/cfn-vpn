@@ -20,6 +20,7 @@ module CfnVpn
 
     class_option :server_cn, required: true, desc: 'server certificate common name'
     class_option :client_cn, desc: 'client certificate common name'
+    class_option :bucket, required: true, desc: 's3 bucket'
 
     class_option :subnet_id, required: true, desc: 'subnet id to associate your vpn with'
     class_option :cidr, default: '10.250.0.0/16', desc: 'cidr from which to assign client IP addresses'
@@ -61,14 +62,16 @@ module CfnVpn
     def generate_server_certificates
       Log.logger.info "Generating certificates using openvpn easy-rsa"
       cert = CfnVpn::Certificates.new(@build_dir,@name)
-      @client_cn = @options['client_cn'] ? @options['client_cn'] : "#{@name}.#{@options['server_cn']}"
-      Log.logger.debug cert.generate(@options['server_cn'],@client_cn)
+      @client_cn = @options['client_cn'] ? @options['client_cn'] : "client-vpn.#{@options['server_cn']}"
+      Log.logger.debug cert.generate_ca(@options['server_cn'],@client_cn)
     end
 
     def upload_certificates
       cert = CfnVpn::Certificates.new(@build_dir,@name)
       @config['parameters']['ServerCertificateArn'] = cert.upload_certificates(@options['region'],'server','server',@options['server_cn'])
       @config['parameters']['ClientCertificateArn'] = cert.upload_certificates(@options['region'],@client_cn,'client')
+      s3 = CfnVpn::S3.new(@options['region'],@options['bucket'],@name)
+      s3.store_object("#{@build_dir}/certificates/ca.tar.gz")
     end
 
     def deploy_vpn

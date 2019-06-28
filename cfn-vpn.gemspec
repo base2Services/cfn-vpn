@@ -36,11 +36,12 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   spec.add_dependency "thor", "~> 0.20"
+  spec.add_dependency "terminal-table", '~> 1', '<2'
   spec.add_dependency 'cfhighlander', '~> 0.9', '<1'
   spec.add_dependency 'cfndsl', '~> 0.17', '<1'
   spec.add_runtime_dependency 'aws-sdk-ec2', '~> 1.95', '<2'
   spec.add_runtime_dependency 'aws-sdk-acm', '~> 1', '<2'
-  spec.add_runtime_dependency 'aws-sdk-ssm', '~> 1', '<2'
+  spec.add_runtime_dependency 'aws-sdk-s3', '~> 1', '<2'
   spec.add_runtime_dependency 'aws-sdk-cloudformation', '~> 1', '<2'
 
   spec.add_development_dependency "bundler", "~> 2.0"

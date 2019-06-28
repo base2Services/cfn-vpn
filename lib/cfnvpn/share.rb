@@ -1,8 +1,8 @@
-require 'cfnvpn/clientvpn'
 require 'cfnvpn/log'
+require 'cfnvpn/s3'
 
 module CfnVpn
-  class Config < Thor::Group
+  class Share < Thor::Group
     include Thor::Actions
     include CfnVpn::Log
 
@@ -11,9 +11,9 @@ module CfnVpn
     class_option :profile, desc: 'AWS Profile'
     class_option :region, default: ENV['AWS_REGION'], desc: 'AWS Region'
     class_option :verbose, desc: 'set log level to debug', type: :boolean
+
     class_option :bucket, required: true, desc: 's3 bucket'
     class_option :client_cn, required: true, desc: "client certificates to download"
-
     class_option :ignore_routes, alias: :i, type: :boolean, desc: "Ignore client VPN pushed routes and set routes in config file"
 
     def self.source_root
@@ -24,40 +24,13 @@ module CfnVpn
       Log.logger.level = Logger::DEBUG if @options['verbose']
     end
 
-    def create_config_directory
-      @build_dir = "#{ENV['HOME']}/.cfnvpn/#{@name}"
-      @config_dir = "#{@build_dir}/config"
-      Log.logger.debug("Creating config directory #{@config_dir}")
-      FileUtils.mkdir_p(@config_dir)
-    end
-
-    def download_config
+    def copy_config_to_s3
       vpn = CfnVpn::ClientVpn.new(@name,@options['region'])
       @endpoint_id = vpn.get_endpoint_id()
-      Log.logger.info "downloading client config for #{@endpoint_id}"
+      Log.logger.debug "downloading client config for #{@endpoint_id}"
       @config = vpn.get_config(@endpoint_id)
-    end
-
-    def download_certificates
-      download = true
-      if File.exists?("#{@config_dir}/#{@options['client_cn']}.crt")
-        download = yes? "Certificates for #{@options['client_cn']} already exist in #{@config_dir}. Do you want to download again? ", :green
-      end
-
-      if download
-        Log.logger.info "Downloading certificates for #{@options['client_cn']} to #{@config_dir}"
-        s3 = CfnVpn::S3.new(@options['region'],@options['bucket'],@name)
-        s3.get_object("#{@config_dir}/#{@options['client_cn']}.tar.gz")
-        cert = CfnVpn::Certificates.new(@build_dir,@name)
-        Log.logger.debug cert.extract_certificate(@options['client_cn'])
-      end
-    end
-
-    def alter_config
       string = (0...8).map { (65 + rand(26)).chr.downcase }.join
       @config.sub!(@endpoint_id, "#{string}.#{@endpoint_id}")
-      @config.concat("\n\ncert #{@config_dir}/#{@options['client_cn']}.crt")
-      @config.concat("\nkey #{@config_dir}/#{@options['client_cn']}.key\n")
     end
 
     def add_routes
@@ -78,10 +51,34 @@ module CfnVpn
       end
     end
 
-    def write_config
-      config_file = "#{@config_dir}/#{@name}.ovpn"
-      File.write(config_file, @config)
-      Log.logger.info "downloaded client config #{config_file}"
+    def upload_config
+      @s3 = CfnVpn::S3.new(@options['region'],@options['bucket'],@name)
+      @s3.store_config(@config)
+    end
+
+    def get_certificate_url
+      @certificate_url = @s3.get_url("#{@options['client_cn']}.tar.gz")
+      Log.logger.debug "Certificate presigned url: #{@certificate_url}"
+    end
+
+    def get_config_url
+      @config_url = @s3.get_url("#{@name}.config.ovpn")
+      Log.logger.debug "Config presigned url: #{@config_url}"
+    end
+
+    def display_instructions
+      Log.logger.info "Share the bellow instruction with the user..."
+      say "\nDownload the certificates and config from the bellow presigned URLs which will expire in 1 hour."
+      say "\nCertificate:"
+      say "\tcurl #{@certificate_url} > #{@options['client_cn']}.tar.gz", :cyan
+      say "\nConfig:\n"
+      say "\tcurl #{@certificate_url} > #{@name}.config.ovpn", :cyan
+      say "\nExtract the certificates from the tar and place into a safe location."
+      say "\ttar xzfv #{@options['client_cn']}.tar.gz -C <path> --strip 2", :cyan
+      say "\nModify #{@name}.config.ovpn to include the full location of your extracted certificates"
+      say "\techo \"key /<path>/#{@options['client_cn']}.key\" >> #{@name}.config.ovpn", :cyan
+      say "\techo \"cert /<path>/#{@options['client_cn']}.crt\" >> #{@name}.config.ovpn", :cyan
+      say "\nOpen #{@name}.config.ovpn with your favourite openvpn client."
     end
 
   end
