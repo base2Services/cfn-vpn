@@ -3,6 +3,11 @@
 Manages the resources required to create a [client vpn](https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/what-is.html) in AWS.
 Uses cloudformation to manage the state of the vpn resources.
 
+## Platforms
+
+- osx
+- linux
+
 ## Installation
 
 Install `cfn-vpn` gem
@@ -14,9 +19,48 @@ gem install cfn-vpn
 Install [docker](https://docs.docker.com/install/)
 
 Docker is required to generate the certificates required for the client vpn.
-The gem uses [openvpn/easy-rsa](https://github.com/OpenVPN/easy-rsa) project in [base2/aws-client-vpn](https://hub.docker.com/r/base2/aws-client-vpn) dokcer image.
+The gem uses [openvpn/easy-rsa](https://github.com/OpenVPN/easy-rsa) project in [base2/aws-client-vpn](https://hub.docker.com/r/base2/aws-client-vpn) docker image. [repo](https://github.com/base2Services/ciinabox-containers/tree/master/easy-rsa)
 
 Setup your [AWS credentials](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html) by either setting a profile or exporting them as environment variables.
+
+```bash
+export AWS_ACCESS_KEY_ID="XXXXXXXXXXXXXXXXXXXXX"
+export AWS_SECRET_ACCESS_KEY="XXXXXXXXXXXXXXXXXXXXX"
+export AWS_SESSION_TOKEN="XXXXXXXXXXXXXXXXXXXXX"
+```
+
+Optionally export the AWS region if not providing `--region` flag
+
+```bash
+export AWS_REGION="us-east-1"
+```
+
+## Scenarios 
+
+For further AWS documentation please visit https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/scenario.html
+
+### SplitTunnel
+
+Split tunnel when enabled will only push the routes defined on the client vpn. This is useful if you only want to push routes from your vpc through the vpn.
+
+### Public subnet with Internet Access
+
+This can be setup with default options selected. This will push all routes from through the vpn including all internet traffic. The ENI attached to the vpn client attaches a public IP which is used for natting between the vpn and the internet. This must be placed inside a public subnet with a internet gateway attached to the vpc.
+Please read the AWS [documentation](https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/scenario-internet.html) for troubleshooting any networking issues
+
+### Private subnet with Internet Access
+
+This is the same as above but the vpn attached to a subnet in a private subnet with the public route being routed through a nat gateway. **NOTE** the dns on the vpn must be set to the dns server of the vpc you've attached the vpn to, the reserved IP address at the base of the VPC IPv4 network range plus two. For example if you VPC cidr is 10.0.0.0/16 then the dns server for that vpc is 10.0.0.2.
+
+```bash
+cfn-vpn init myvpn --bucket mybucket --server-cn myvpn.domain.tld --subnet-id subnet-123456ab --dns-servers 10.0.0.2
+```
+
+If you are experiencing issue connecting to the internet check to see if your local dns configurations are overriding the ones set by the vpn. You can test this by using `dig` to query a domain from the vpc dns server. For example:
+
+```bash
+dig @10.0.0.2 google.com
+```
 
 ## Usage
 
@@ -50,8 +94,23 @@ This will create a new client vpn endpoint, associates it with a subnet and sets
 During this process a new CA and certificate and keys are generated using [openvpn/easy-rsa](https://github.com/OpenVPN/easy-rsa) and uploaded to ACM.
 These keys are bundled in a tar and stored encrypted in your provided s3 bucket.
 
-`cfn-vpn init myvpn --bucket mybucket --server-cn myvpn.domain.tld --subnet-id subnet-123456ab`
+```bash
+cfn-vpn init myvpn --bucket mybucket --server-cn myvpn.domain.tld --subnet-id subnet-123456ab
+```
 
+*Optional:*
+
+```bash
+[--cidr=CIDR]                              # cidr from which to assign client IP addresses
+                                           # Default: 10.250.0.0/16
+[--dns-servers=DNS_SERVERS]                # DNS Servers to push to clients.
+[--split-tunnel], [--no-split-tunnel]      # only push routes to the client on the vpn endpoint
+[--internet-route], [--no-internet-route]  # create a default route to the internet
+                                           # Default: true
+[--protocol=PROTOCOL]                      # set the protocol for the vpn connections
+                                           # Default: udp
+                                           # Possible values: udp, tcp
+```
 
 ### Create a new client
 
@@ -76,10 +135,6 @@ The config will be modified to include the local path of the client cert and key
 
 `cfn-vpn config myvpn --client-cn user1 --bucket mybucket`
 
-*Optional:*
-
-`--ignore-routes` By deafult AWS Client VPN will push all routes from your local through the VPN connection. Select this flag to only push routes specified in the Client VPN route table.
-
 
 ### Modify the Client VPN config
 
@@ -87,11 +142,19 @@ This will modify some attributes of the client vpn endpoint.
 
 `cfn-vpn config myvpn --dns-servers 8.8.8.8,8.8.4.4`
 
-*Optional:*
+*Options:*
 
-`--dns-servers` Change the DNS servers pushed by the VPN.
-`--subnet-id` Change the associated subnet.
-`--cidr` Change the Client CIDR range.
+```bash
+[--cidr=CIDR]                              # cidr from which to assign client IP addresses
+                                           # Default: 10.250.0.0/16
+[--dns-servers=DNS_SERVERS]                # DNS Servers to push to clients.
+[--split-tunnel], [--no-split-tunnel]      # only push routes to the client on the vpn endpoint
+[--internet-route], [--no-internet-route]  # create a default route to the internet
+                                           # Default: true
+[--protocol=PROTOCOL]                      # set the protocol for the vpn connections
+                                           # Default: udp
+                                           # Possible values: udp, tcp
+```
 
 
 ### Share client certificates with a user
