@@ -39,6 +39,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency "terminal-table", '~> 1', '<2'
   spec.add_dependency 'cfhighlander', '~> 0.9', '<1'
   spec.add_dependency 'cfndsl', '~> 0.17', '<1'
+  spec.add_dependency 'netaddr', '2.0.4'
   spec.add_runtime_dependency 'aws-sdk-ec2', '~> 1.95', '<2'
   spec.add_runtime_dependency 'aws-sdk-acm', '~> 1', '<2'
   spec.add_runtime_dependency 'aws-sdk-s3', '~> 1', '<2'

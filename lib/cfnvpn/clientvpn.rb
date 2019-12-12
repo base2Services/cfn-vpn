@@ -143,7 +143,7 @@ module CfnVpn
       routes = get_routes()
       routes
         .select { |r| r if r.destination_cidr != '0.0.0.0/0' }
-        .collect { |r| { route: r.destination_cidr.split('/').first, mask: NetAddr::CIDR.create(r.destination_cidr).wildcard_mask }}
+        .collect { |r| { route: r.destination_cidr.split('/').first, mask: NetAddr::IPv4Net.parse(r.destination_cidr).netmask.extended }}
     end
 
     def valid_cidr?(cidr)
