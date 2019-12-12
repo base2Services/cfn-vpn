@@ -25,6 +25,11 @@ module CfnVpn
     class_option :subnet_id, required: true, desc: 'subnet id to associate your vpn with'
     class_option :cidr, default: '10.250.0.0/16', desc: 'cidr from which to assign client IP addresses'
     class_option :dns_servers, desc: 'DNS Servers to push to clients.'
+    
+    class_option :split_tunnel, type: :boolean, default: false, desc: 'only push routes to the client on the vpn endpoint'
+    class_option :internet_route, type: :boolean, default: true, desc: 'create a default route to the internet'
+    class_option :protocol, type: :string, default: 'udp', enum: ['udp','tcp'], desc: 'set the protocol for the vpn connections'
+
 
     def self.source_root
       File.dirname(__FILE__)
@@ -47,7 +52,10 @@ module CfnVpn
       @config['parameters']['AssociationSubnetId'] = @options['subnet_id']
       @config['parameters']['ClientCidrBlock'] = @options['cidr']
       @config['parameters']['DnsServers'] = @options['dns_servers']
-      @config['template_version'] = '0.1.1'
+      @config['parameters']['SplitTunnel'] = @options['split_tunnel'].to_s
+      @config['parameters']['InternetRoute'] = @options['internet_route'].to_s
+      @config['parameters']['Protocol'] = @options['protocol']
+      @config['template_version'] = '0.2.0'
     end
 
     def stack_exist
