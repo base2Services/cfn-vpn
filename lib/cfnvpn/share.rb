@@ -72,7 +72,7 @@ module CfnVpn
       say "\nCertificate:"
       say "\tcurl #{@certificate_url} > #{@options['client_cn']}.tar.gz", :cyan
       say "\nConfig:\n"
-      say "\tcurl #{@certificate_url} > #{@name}.config.ovpn", :cyan
+      say "\tcurl #{@config_url} > #{@name}.config.ovpn", :cyan
       say "\nExtract the certificates from the tar and place into a safe location."
       say "\ttar xzfv #{@options['client_cn']}.tar.gz -C <path> --strip 2", :cyan
       say "\nModify #{@name}.config.ovpn to include the full location of your extracted certificates"
