@@ -12,6 +12,7 @@ module CfnVpn
       @config_dir = "#{build_dir}/config"
       @cert_dir = "#{build_dir}/certificates"
       @docker_cmd = %w(docker run -it --rm)
+      @docker_cmd << "--user #{Process.uid}:#{Process.gid}" if Process::UID.sid_available?
       @easyrsa_image = "base2/aws-client-vpn"
       FileUtils.mkdir_p(@cert_dir)
     end
