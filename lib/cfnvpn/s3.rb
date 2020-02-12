@@ -53,5 +53,15 @@ module CfnVpn
       presigner.presigned_url(:get_object, params)
     end
 
+    def store_embedded_config(config, cn)
+      Log.logger.debug("uploading config to s3://#{@bucket}/#{@path}/#{@name}_#{cn}.config.ovpn")
+      @client.put_object({
+        body: config,
+        bucket: @bucket,
+        key: "#{@path}/#{@name}_#{cn}.config.ovpn",
+        tagging: "cfnvpn:name=#{@name}"
+      })
+    end
+
   end
 end
