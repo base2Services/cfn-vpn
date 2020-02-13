@@ -69,6 +69,7 @@ Commands:
   cfn-vpn --version, -v                                                            # print the version
   cfn-vpn client [name] --bucket=BUCKET --client-cn=CLIENT_CN                      # Create a new client certificate
   cfn-vpn config [name] --bucket=BUCKET --client-cn=CLIENT_CN                      # Retrieve the config for the AWS Client VPN
+  cfn-vpn embedded [name] --bucket=BUCKET --client-cn=CLIENT_CN                    # Embed certs into config with and generate S3 presigned URL
   cfn-vpn help [COMMAND]                                                           # Describe available commands or one specific command
   cfn-vpn init [name] --bucket=BUCKET --server-cn=SERVER_CN --subnet-id=SUBNET_ID  # Create a AWS Client VPN
   cfn-vpn modify [name]                                                            # Modify your AWS Client VPN
@@ -224,6 +225,13 @@ to delete a route specify the `--del` flag with the cidr you want to delete.
 
 `cfn-vpn routes myvpn --del 10.10.0.0/16`
 
+
+### Embed client certificates into config file and share
+
+This will pull the clients certificate and key archives from S3 and embed them into the config file, upload it back to S3 and generate a presigned URL for the user.
+This allows the you to download or share a single, ready to import config file into a OpenVPN client.
+
+`cfn-vpn embedded myvpn --client-cn user1 --bucket mybucket`
 
 ## Contributing
 
