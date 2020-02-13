@@ -69,7 +69,7 @@ Commands:
   cfn-vpn --version, -v                                                            # print the version
   cfn-vpn client [name] --bucket=BUCKET --client-cn=CLIENT_CN                      # Create a new client certificate
   cfn-vpn config [name] --bucket=BUCKET --client-cn=CLIENT_CN                      # Retrieve the config for the AWS Client VPN
-  cfn-vpn embedded [name] --bucket=BUCKET --client-cn=CLIENT_CN                    # Embed certs into config with and generate S3 presigned URL
+  cfn-vpn embedded [name] --bucket=BUCKET --client-cn=CLIENT_CN                    # Embed client certs into config and generate S3 presigned URL
   cfn-vpn help [COMMAND]                                                           # Describe available commands or one specific command
   cfn-vpn init [name] --bucket=BUCKET --server-cn=SERVER_CN --subnet-id=SUBNET_ID  # Create a AWS Client VPN
   cfn-vpn modify [name]                                                            # Modify your AWS Client VPN

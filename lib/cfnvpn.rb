@@ -43,7 +43,7 @@ module CfnVpn
     register CfnVpn::Share, 'share', 'share [name]', 'Provide a user with a s3 signed download for certificates and config'
     tasks["share"].options = CfnVpn::Share.class_options
 
-    register CfnVpn::Embedded, 'embedded', 'embedded [name]', 'Provide a user with a S3 signed download for config embedded with certificates'
+    register CfnVpn::Embedded, 'embedded', 'embedded [name]', 'Embed client certs into config and generate S3 presigned URL'
     tasks["embedded"].options = CfnVpn::Embedded.class_options
 
   end
