@@ -16,10 +16,21 @@ Install `cfn-vpn` gem
 gem install cfn-vpn
 ```
 
+### easy-rsa
+
+**Option 1 - Docker**
+
 Install [docker](https://docs.docker.com/install/)
 
 Docker is required to generate the certificates required for the client vpn.
 The gem uses [openvpn/easy-rsa](https://github.com/OpenVPN/easy-rsa) project in [base2/aws-client-vpn](https://hub.docker.com/r/base2/aws-client-vpn) docker image. [repo](https://github.com/base2Services/ciinabox-containers/tree/master/easy-rsa)
+
+**Option 1 - local**
+
+If you would rather setup easy-rsa than install docker, you can use the `--easyrsa-local` flag when running the commands to use a local copy of easy-rsa, the binary just needs to be available in the `$PATH`. Install from [openvpn/easy-rsa](https://github.com/OpenVPN/easy-rsa)
+
+
+### AWS Credentials
 
 Setup your [AWS credentials](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html) by either setting a profile or exporting them as environment variables.
 
@@ -34,6 +45,10 @@ Optionally export the AWS region if not providing `--region` flag
 ```bash
 export AWS_REGION="us-east-1"
 ```
+
+## Docker Image
+
+[base2/cfn-vpn](https://hub.docker.com/r/base2/cfn-vpn) docker image for usage in a pipeline which comes pre packaged with all dependencies.
 
 ## Scenarios 
 
