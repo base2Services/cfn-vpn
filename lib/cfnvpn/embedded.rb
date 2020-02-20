@@ -1,5 +1,6 @@
 require 'cfnvpn/log'
 require 'cfnvpn/s3'
+require 'cfnvpn/globals'
 
 module CfnVpn
   class Embedded < Thor::Group
@@ -13,7 +14,8 @@ module CfnVpn
     class_option :verbose, desc: 'set log level to debug', type: :boolean
 
     class_option :bucket, required: true, desc: 'S3 bucket'
-    class_option :client_cn, required: true, desc: 'Client certificates to download'
+    class_option :client_cn, required: true, default: false, desc: 'Client certificates to download'
+    class_option :easyrsa_local, type: :boolean, default: false, desc: 'run the easyrsa executable from your local rather than from docker'
     class_option :ignore_routes, alias: :i, type: :boolean, desc: 'Ignore client VPN pushed routes and set routes in config file'
 
     def self.source_root
@@ -25,7 +27,7 @@ module CfnVpn
     end
 
     def create_config_directory
-      @build_dir = "#{ENV['HOME']}/.cfnvpn/#{@name}"
+      @build_dir = "#{CfnVpn.cfnvpn_path}/#{@name}"
       @config_dir = "#{@build_dir}/config"
       Log.logger.debug("Creating config directory #{@config_dir}")
       FileUtils.mkdir_p(@config_dir)
@@ -41,7 +43,7 @@ module CfnVpn
         Log.logger.info "Downloading certificates for #{@options['client_cn']} to #{@config_dir}"
         s3 = CfnVpn::S3.new(@options['region'],@options['bucket'],@name)
         s3.get_object("#{@config_dir}/#{@options['client_cn']}.tar.gz")
-        cert = CfnVpn::Certificates.new(@build_dir,@name)
+        cert = CfnVpn::Certificates.new(@build_dir,@name,@options['easyrsa_local'])
         Log.logger.debug cert.extract_certificate(@options['client_cn'])
       end
     end
@@ -74,7 +76,7 @@ module CfnVpn
     end
 
     def embed_certs
-      cert = CfnVpn::Certificates.new(@build_dir,@name)
+      cert = CfnVpn::Certificates.new(@build_dir,@name,@options['easyrsa_local'])
       Log.logger.debug cert.extract_certificate(@options['client_cn'])
       Log.logger.debug "Reading extracted certificate and private key"
       key = File.read("#{@config_dir}/#{@options['client_cn']}.key")

@@ -1,6 +1,7 @@
 require 'thor'
 require 'cfnvpn/log'
 require 'cfnvpn/s3'
+require 'cfnvpn/globals'
 
 module CfnVpn
   class Revoke < Thor::Group
@@ -15,6 +16,7 @@ module CfnVpn
 
     class_option :bucket, desc: 's3 bucket', required: true
     class_option :client_cn, desc: 'client certificate common name', required: true
+    class_option :easyrsa_local, type: :boolean, default: false, desc: 'run the easyrsa executable from your local rather than from docker'
 
     def self.source_root
       File.dirname(__FILE__)
@@ -25,12 +27,12 @@ module CfnVpn
     end
 
     def set_directory
-      @build_dir = "#{ENV['HOME']}/.cfnvpn/#{@name}"
+      @build_dir = "#{CfnVpn.cfnvpn_path}/#{@name}"
       @cert_dir = "#{@build_dir}/certificates"
     end
 
     def revoke_certificate
-      cert = CfnVpn::Certificates.new(@build_dir,@name)
+      cert = CfnVpn::Certificates.new(@build_dir,@name,@options['easyrsa_local'])
       s3 = CfnVpn::S3.new(@options['region'],@options['bucket'],@name)
       s3.get_object("#{@cert_dir}/ca.tar.gz")
       s3.get_object("#{@cert_dir}/#{@options['client_cn']}.tar.gz")

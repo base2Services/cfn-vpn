@@ -1,6 +1,7 @@
 require 'thor'
 require 'cfnvpn/log'
 require 'cfnvpn/s3'
+require 'cfnvpn/globals'
 
 module CfnVpn
   class Routes < Thor::Group
@@ -26,7 +27,7 @@ module CfnVpn
     end
 
     def set_directory
-      @build_dir = "#{ENV['HOME']}/.cfnvpn/#{@name}"
+      @build_dir = "#{CfnVpn.cfnvpn_path}/#{@name}"
     end
 
     def add_route

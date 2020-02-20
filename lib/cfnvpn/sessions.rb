@@ -2,6 +2,7 @@ require 'thor'
 require 'terminal-table'
 require 'cfnvpn/log'
 require 'cfnvpn/clientvpn'
+require 'cfnvpn/globals'
 
 module CfnVpn
   class Sessions < Thor::Group
@@ -25,7 +26,7 @@ module CfnVpn
     end
 
     def set_directory
-      @build_dir = "#{ENV['HOME']}/.cfnvpn/#{@name}"
+      @build_dir = "#{CfnVpn.cfnvpn_path}/#{@name}"
     end
 
     def get_endpoint

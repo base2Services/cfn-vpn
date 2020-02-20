@@ -6,6 +6,7 @@ require 'cfnvpn/cfhighlander'
 require 'cfnvpn/cloudformation'
 require 'cfnvpn/log'
 require 'cfnvpn/clientvpn'
+require 'cfnvpn/globals'
 
 module CfnVpn
   class Modify < Thor::Group
@@ -35,7 +36,7 @@ module CfnVpn
     end
 
     def create_build_directory
-      @build_dir = "#{ENV['HOME']}/.cfnvpn/#{@name}"
+      @build_dir = "#{CfnVpn.cfnvpn_path}/#{@name}"
       Log.logger.debug "creating directory #{@build_dir}"
       FileUtils.mkdir_p(@build_dir)
     end

@@ -6,6 +6,7 @@ require 'cfnvpn/cfhighlander'
 require 'cfnvpn/cloudformation'
 require 'cfnvpn/log'
 require 'cfnvpn/clientvpn'
+require 'cfnvpn/globals'
 
 module CfnVpn
   class Init < Thor::Group
@@ -20,6 +21,7 @@ module CfnVpn
 
     class_option :server_cn, required: true, desc: 'server certificate common name'
     class_option :client_cn, desc: 'client certificate common name'
+    class_option :easyrsa_local, type: :boolean, default: false, desc: 'run the easyrsa executable from your local rather than from docker'
     class_option :bucket, required: true, desc: 's3 bucket'
 
     class_option :subnet_id, required: true, desc: 'subnet id to associate your vpn with'
@@ -40,7 +42,7 @@ module CfnVpn
     end
 
     def create_build_directory
-      @build_dir = "#{ENV['HOME']}/.cfnvpn/#{@name}"
+      @build_dir = "#{CfnVpn.cfnvpn_path}/#{@name}"
       Log.logger.debug "creating directory #{@build_dir}"
       FileUtils.mkdir_p(@build_dir)
     end
@@ -69,13 +71,13 @@ module CfnVpn
     # create certificates
     def generate_server_certificates
       Log.logger.info "Generating certificates using openvpn easy-rsa"
-      cert = CfnVpn::Certificates.new(@build_dir,@name)
+      cert = CfnVpn::Certificates.new(@build_dir,@name,@options['easyrsa_local'])
       @client_cn = @options['client_cn'] ? @options['client_cn'] : "client-vpn.#{@options['server_cn']}"
-      Log.logger.debug cert.generate_ca(@options['server_cn'],@client_cn)
+      cert.generate_ca(@options['server_cn'],@client_cn)
     end
 
     def upload_certificates
-      cert = CfnVpn::Certificates.new(@build_dir,@name)
+      cert = CfnVpn::Certificates.new(@build_dir,@name,@options['easyrsa_local'])
       @config['parameters']['ServerCertificateArn'] = cert.upload_certificates(@options['region'],'server','server',@options['server_cn'])
       @config['parameters']['ClientCertificateArn'] = cert.upload_certificates(@options['region'],@client_cn,'client')
       s3 = CfnVpn::S3.new(@options['region'],@options['bucket'],@name)
