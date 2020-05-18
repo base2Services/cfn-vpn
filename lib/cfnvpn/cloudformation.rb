@@ -41,11 +41,11 @@ module CfnVpn
 
       params.each do |param|
         if !parameters[param[:parameter_key]].nil?
-          param['parameter_value'] = parameters[param[:parameter_key]]
-          param['use_previous_value'] = false
+          param[:parameter_value] = parameters[param[:parameter_key]]
+          param[:use_previous_value] = false
         end
       end
-
+      
       template_body = File.read(template_path)
       Log.logger.debug "Creating changeset"
       change_set = @client.create_change_set({
