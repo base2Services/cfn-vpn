@@ -23,9 +23,9 @@ module CfnVpn
     class_option :cidr, desc: 'cidr from which to assign client IP addresses'
     class_option :dns_servers, desc: 'DNS Servers to push to clients.'
 
-    class_option :split_tunnel, type: :boolean, default: false, desc: 'only push routes to the client on the vpn endpoint'
-    class_option :internet_route, type: :boolean, default: true, desc: 'create a default route to the internet'
-    class_option :protocol, type: :string, default: 'udp', enum: ['udp','tcp'], desc: 'set the protocol for the vpn connections'
+    class_option :split_tunnel, type: :boolean, desc: 'only push routes to the client on the vpn endpoint'
+    class_option :internet_route, type: :boolean, desc: 'create a default route to the internet'
+    class_option :protocol, type: :string, enum: ['udp','tcp'], desc: 'set the protocol for the vpn connections'
 
     def self.source_root
       File.dirname(__FILE__)
@@ -44,12 +44,12 @@ module CfnVpn
     def initialize_config
       @config = {}
       @config['parameters'] = {}
-      @config['parameters']['AssociationSubnetId'] = @options['subnet_id']
-      @config['parameters']['ClientCidrBlock'] = @options['cidr']
-      @config['parameters']['DnsServers'] = @options['dns_servers']
-      @config['parameters']['SplitTunnel'] = @options['split_tunnel'].to_s
-      @config['parameters']['InternetRoute'] = @options['internet_route'].to_s
-      @config['parameters']['Protocol'] = @options['protocol']
+      @config['parameters']['AssociationSubnetId'] = @options['subnet_id'] unless @options['subnet_id'].nil?
+      @config['parameters']['ClientCidrBlock'] = @options['cidr'] unless @options['cidr'].nil?
+      @config['parameters']['DnsServers'] = @options['dns_servers'] unless @options['dns_servers'].nil?
+      @config['parameters']['SplitTunnel'] = @options['split_tunnel'].to_s unless @options['split_tunnel'].nil?
+      @config['parameters']['InternetRoute'] = @options['internet_route'].to_s unless @options['internet_route'].nil?
+      @config['parameters']['Protocol'] = @options['protocol'] unless @options['protocol'].nil?
       @config['template_version'] = '0.2.0'
     end
 
