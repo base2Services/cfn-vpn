@@ -11,6 +11,7 @@ require 'cfnvpn/actions/share'
 require 'cfnvpn/actions/embedded'
 require 'cfnvpn/actions/associate'
 require 'cfnvpn/actions/disassociate'
+require 'cfnvpn/actions/associations'
 
 module CfnVpn
   class Cli < Thor
@@ -53,6 +54,9 @@ module CfnVpn
 
     register CfnVpn::Disassociate, 'disassociate', 'disassociate [name]', 'Disassociate all subnets with the client vpn'
     tasks["disassociate"].options = CfnVpn::Disassociate.class_options
+
+    register CfnVpn::Associations, 'associations', 'associations [name]', 'Display all active associations'
+    tasks["associations"].options = CfnVpn::Associations.class_options
 
   end
 end

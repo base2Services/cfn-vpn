@@ -150,5 +150,42 @@ module CfnVpn
       return !(cidr =~ /^([0-9]{1,3}\.){3}[0-9]{1,3}(\/([0-9]|[1-2][0-9]|3[0-2]))?$/).nil?
     end
 
+    def get_associations(endpoint)
+      associations = []
+      resp = @client.describe_client_vpn_target_networks({
+        client_vpn_endpoint_id: endpoint
+      })
+
+      resp.client_vpn_target_networks.each do |net|
+        subnet_resp = @client.describe_subnets({
+          subnet_ids: [net.target_network_id]
+        })
+        subnet = subnet_resp.subnets.first
+
+        auth_resp = @client.describe_client_vpn_authorization_rules({
+          client_vpn_endpoint_id: endpoint,
+          filters: [
+            {
+              name: 'destination-cidr',
+              values: [subnet.cidr_block]
+            }
+          ]
+        })
+        
+        groups = auth_resp.authorization_rules.map {|rule| rule.group_id }
+
+        associations.push({
+          association_id: net.association_id,
+          target_network_id: net.target_network_id,
+          status: net.status.code,
+          cidr: subnet.cidr_block,
+          az: subnet.availability_zone,
+          groups: groups.join(' ')
+        })
+      end
+
+      return associations
+    end
+
   end
 end
