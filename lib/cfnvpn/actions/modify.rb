@@ -1,5 +1,6 @@
 require 'thor'
 require 'fileutils'
+require 'terminal-table'
 require 'cfnvpn/deployer'
 require 'cfnvpn/certificates'
 require 'cfnvpn/compiler'
@@ -80,28 +81,45 @@ module CfnVpn
     def deploy_vpn
       compiler = CfnVpn::Compiler.new(@name, @config)
       template_body = compiler.compile
-      Log.logger.info "Modifying cloudformation stack #{@name}-cfnvpn in #{@options['region']}"
+      Log.logger.info "Creating cloudformation changeset for stack #{@name}-cfnvpn in #{@options['region']}"
       change_set, change_set_type = @deployer.create_change_set(template_body)
       @deployer.wait_for_changeset(change_set.id)
-      changes = @deployer.get_change_set(change_set.id)
+      changeset_response = @deployer.get_change_set(change_set.id)
 
-      Log.logger.warn("The following changes to the cfnvpn stack will be made")
-      changes.changes.each do |change|
-        Log.logger.warn("ID: #{change.resource_change.logical_resource_id} Action: #{change.resource_change.action}")
-        change.resource_change.details.each do |details|
-          Log.logger.warn("Name: #{details.target.name} Attribute: #{details.target.attribute} Cause: #{details.causing_entity}")
-        end
+      changes = {"Add" => [], "Modify" => [], "Remove" => []}
+      change_colours = {"Add" => "green", "Modify" => 'yellow', "Remove" => 'red'}
+
+      changeset_response.changes.each do |change|
+        action = change.resource_change.action
+        changes[action].push([
+          change.resource_change.logical_resource_id,
+          change.resource_change.resource_type,
+          change.resource_change.replacement ? change.resource_change.replacement : 'N/A',
+          change.resource_change.details.collect {|detail| detail.target.name }.join(' , ')
+        ])
       end
 
+      changes.each do |type, rows|
+        next if !rows.any?
+        puts "\n"
+        table = Terminal::Table.new(
+          :title => type,
+          :headings => ['Logical Resource Id', 'Resource Type', 'Replacement', 'Changes'],
+          :rows => rows)
+        puts table.to_s.send(change_colours[type])
+      end
+
+      Log.logger.info "Cloudformation changeset changes:"
+      puts "\n"
       continue = yes? "Continue?", :green
       if !continue
-        Log.logger.error("Cancelled cfn-vpn modifiy #{@name}")
+        Log.logger.info("Cancelled cfn-vpn modifiy #{@name}")
         exit 1
       end
 
       @deployer.execute_change_set(change_set.id)
       @deployer.wait_for_execute(change_set_type)
-      Log.logger.debug "Changeset #{change_set_type} complete"
+      Log.logger.info "Changeset #{change_set_type} complete"
     end
 
     def finish
