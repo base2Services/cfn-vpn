@@ -30,7 +30,7 @@ module CfnVpn
       return does_cf_stack_exist() ? 'UPDATE' : 'CREATE'
     end
 
-    def create_change_set(template_body,parameters={})
+    def create_change_set(template_body: nil, parameters: {})
       change_set_name = "#{@stack_name}-#{CfnVpn::CHANGE_SET_VERSION}-#{Time.now.utc.strftime("%Y%m%d%H%M%S")}"
       change_set_type = get_change_set_type()
 
@@ -46,11 +46,9 @@ module CfnVpn
           param[:use_previous_value] = false
         end
       end
-      
-      Log.logger.debug "Creating changeset"
-      change_set = @client.create_change_set({
+
+      changeset_args = {
         stack_name: @stack_name,
-        template_body: template_body,
         parameters: params,
         tags: [
           {
@@ -64,7 +62,16 @@ module CfnVpn
         ],
         change_set_name: change_set_name,
         change_set_type: change_set_type
-      })
+      }
+
+      if !template_body.nil?
+        changeset_args[:template_body] = template_body
+      else
+        changeset_args[:use_previous_template] = true
+      end
+
+      Log.logger.debug "Creating changeset"
+      change_set = @client.create_change_set(changeset_args)
       return change_set, change_set_type
     end
 
@@ -106,6 +113,13 @@ module CfnVpn
     def get_parameters_from_template(template_body)
       resp = @client.get_template_summary({ template_body: template_body })
       return resp.parameters.collect { |p| { parameter_key: p.parameter_key, parameter_value: p.default_value }  }
+    end
+
+    def get_parameter_value(parameter)
+      resp = @client.describe_stacks({ stack_name: @stack_name })
+      stack = resp.stacks.first
+      parameter = stack.parameters.detect {|p| p.parameter_key == parameter}
+      return parameter ? parameter.parameter_value : nil
     end
 
     def get_outputs_from_stack()

@@ -11,6 +11,15 @@ module CfnVpn
       def render(name, config)
         Description "cfnvpn #{name} AWS Client-VPN"
 
+        Parameter(:AssociateSubnets) {
+          Type 'String'
+          Default 'true'
+          AllowedValues ['true', 'false']
+          Description 'Toggle to false to disassociate all Client VPN subnet associations'
+        }
+
+        Condition(:EnableSubnetAssociation, FnEquals(Ref(:AssociateSubnets), 'true'))
+
         Logs_LogGroup(:ClientVpnLogGroup) {
           LogGroupName FnSub("#{name}-ClientVpn")
           RetentionInDays 30
@@ -48,6 +57,7 @@ module CfnVpn
           suffix = "For#{subnet.gsub(/[^a-zA-Z0-9]/, "").capitalize}"
 
           EC2_ClientVpnTargetNetworkAssociation(:"ClientVpnTargetNetworkAssociation#{suffix}") {
+            Condition(:EnableSubnetAssociation)
             ClientVpnEndpointId Ref(:ClientVpnEndpoint)
             SubnetId subnet
           }

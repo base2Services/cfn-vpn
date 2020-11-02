@@ -84,7 +84,7 @@ module CfnVpn
       compiler = CfnVpn::Compiler.new(@name, @config)
       template_body = compiler.compile
       Log.logger.info "Launching cloudformation stack #{@name}-cfnvpn in #{@options['region']}"
-      change_set, change_set_type = @deployer.create_change_set(template_body)
+      change_set, change_set_type = @deployer.create_change_set(template_body: template_body)
       @deployer.wait_for_changeset(change_set.id)
       @deployer.execute_change_set(change_set.id)
       @deployer.wait_for_execute(change_set_type)
