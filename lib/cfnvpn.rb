@@ -1,14 +1,14 @@
 require 'thor'
 require 'cfnvpn/version'
-require 'cfnvpn/init'
-require 'cfnvpn/modify'
-require 'cfnvpn/config'
-require 'cfnvpn/client'
-require 'cfnvpn/revoke'
-require 'cfnvpn/sessions'
-require 'cfnvpn/routes'
-require 'cfnvpn/share'
-require 'cfnvpn/embedded'
+require 'cfnvpn/actions/init'
+require 'cfnvpn/actions/modify'
+require 'cfnvpn/actions/config'
+require 'cfnvpn/actions/client'
+require 'cfnvpn/actions/revoke'
+require 'cfnvpn/actions/sessions'
+require 'cfnvpn/actions/routes'
+require 'cfnvpn/actions/share'
+require 'cfnvpn/actions/embedded'
 
 module CfnVpn
   class Cli < Thor
