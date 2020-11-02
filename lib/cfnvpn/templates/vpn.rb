@@ -32,7 +32,7 @@ module CfnVpn
             Enabled: true
           })
           ServerCertificateArn config[:server_cert_arn]
-          DnsServers config[:dns_servers] if config[:dns_servers]
+          DnsServers config[:dns_servers] if config.fetch(:dns_servers, []).any?
           TagSpecifications([{
             ResourceType: "client-vpn-endpoint",
             Tags: [
