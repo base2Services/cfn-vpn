@@ -2,9 +2,10 @@ require 'aws-sdk-cloudformation'
 require 'fileutils'
 require 'cfnvpn/version'
 require 'cfnvpn/log'
+require 'cfnvpn/string'
 
 module CfnVpn
-  class Cloudformation
+  class Deployer
     include CfnVpn::Log
 
     def initialize(region,name)
@@ -29,12 +30,12 @@ module CfnVpn
       return does_cf_stack_exist() ? 'UPDATE' : 'CREATE'
     end
 
-    def create_change_set(template_path,parameters)
+    def create_change_set(template_body,parameters={})
       change_set_name = "#{@stack_name}-#{CfnVpn::CHANGE_SET_VERSION}-#{Time.now.utc.strftime("%Y%m%d%H%M%S")}"
       change_set_type = get_change_set_type()
 
       if change_set_type == 'CREATE'
-        params = get_parameters_from_template(template_path)
+        params = get_parameters_from_template(template_body)
       else
         params = get_parameters_from_stack()
       end
@@ -46,7 +47,6 @@ module CfnVpn
         end
       end
       
-      template_body = File.read(template_path)
       Log.logger.debug "Creating changeset"
       change_set = @client.create_change_set({
         stack_name: @stack_name,
@@ -103,11 +103,17 @@ module CfnVpn
       return resp.parameters.collect { |p| { parameter_key: p.parameter_key, use_previous_value: true }  }
     end
 
-    def get_parameters_from_template(template_path)
-      template_body = File.read(template_path)
+    def get_parameters_from_template(template_body)
       resp = @client.get_template_summary({ template_body: template_body })
       return resp.parameters.collect { |p| { parameter_key: p.parameter_key, parameter_value: p.default_value }  }
     end
 
+    def get_outputs_from_stack()
+      resp = @client.describe_stacks({
+        stack_name: @stack_name,
+      })
+      stack = resp.stacks.first
+      return Hash[stack.outputs.collect {|output| [output.output_key.underscore.to_sym, output.output_value]}]
+    end
   end
 end

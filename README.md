@@ -156,7 +156,7 @@ The config will be modified to include the local path of the client cert and key
 
 This will modify some attributes of the client vpn endpoint.
 
-`cfn-vpn config myvpn --dns-servers 8.8.8.8,8.8.4.4`
+`cfn-vpn config myvpn --dns-servers 8.8.8.8 8.8.4.4`
 
 *Options:*
 

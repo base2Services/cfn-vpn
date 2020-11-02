@@ -1,9 +1,8 @@
 require 'thor'
 require 'fileutils'
-require 'cfnvpn/cloudformation'
+require 'cfnvpn/deployer'
 require 'cfnvpn/certificates'
-require 'cfnvpn/cfhighlander'
-require 'cfnvpn/cloudformation'
+require 'cfnvpn/compiler'
 require 'cfnvpn/log'
 require 'cfnvpn/clientvpn'
 require 'cfnvpn/globals'
@@ -15,13 +14,12 @@ module CfnVpn
 
     argument :name
 
-    class_option :profile, aliases: :p, desc: 'AWS Profile'
     class_option :region, aliases: :r, default: ENV['AWS_REGION'], desc: 'AWS Region'
     class_option :verbose, desc: 'set log level to debug', type: :boolean
 
-    class_option :subnet_id, desc: 'subnet id to associate your vpn with'
+    class_option :subnet_ids, type: :array, desc: 'subnet id to associate your vpn with'
     class_option :cidr, desc: 'cidr from which to assign client IP addresses'
-    class_option :dns_servers, desc: 'DNS Servers to push to clients.'
+    class_option :dns_servers, type: :array, desc: 'DNS Servers to push to clients.'
 
     class_option :split_tunnel, type: :boolean, desc: 'only push routes to the client on the vpn endpoint'
     class_option :internet_route, type: :boolean, desc: 'create a default route to the internet'
@@ -41,38 +39,30 @@ module CfnVpn
       FileUtils.mkdir_p(@build_dir)
     end
 
-    def initialize_config
-      @config = {}
-      @config['parameters'] = {}
-      @config['parameters']['AssociationSubnetId'] = @options['subnet_id'] unless @options['subnet_id'].nil?
-      @config['parameters']['ClientCidrBlock'] = @options['cidr'] unless @options['cidr'].nil?
-      @config['parameters']['DnsServers'] = @options['dns_servers'] unless @options['dns_servers'].nil?
-      @config['parameters']['SplitTunnel'] = @options['split_tunnel'].to_s unless @options['split_tunnel'].nil?
-      @config['parameters']['InternetRoute'] = @options['internet_route'].to_s unless @options['internet_route'].nil?
-      @config['parameters']['Protocol'] = @options['protocol'] unless @options['protocol'].nil?
-      @config['template_version'] = '0.2.0'
-    end
-
     def stack_exist
-      @cfn = CfnVpn::Cloudformation.new(@options['region'],@name)
-      if !@cfn.does_cf_stack_exist()
+      @deployer = CfnVpn::Deployer.new(@options['region'],@name)
+      if !@deployer.does_cf_stack_exist()
         Log.logger.error "#{@name}-cfnvpn stack doesn't exists in this account in region #{@options['region']}\n Try running `cfn-vpn init #{@name}` to setup the stack"
         exit 1
       end
     end
 
-    def deploy_vpn
-      template('templates/cfnvpn.cfhighlander.rb.tt', "#{@build_dir}/#{@name}.cfhighlander.rb", @config, force: true)
-      Log.logger.debug "Generating cloudformation from #{@build_dir}/#{@name}.cfhighlander.rb"
-      cfhl = CfnVpn::CfHiglander.new(@options['region'],@name,@config,@build_dir)
-      template_path = cfhl.render()
-      Log.logger.debug "Cloudformation template #{template_path} generated and validated"
+    def initialize_config
+      @config = @deployer.get_outputs_from_stack()
+      @config[:subnet_ids] = @config[:subnet_ids].split(',')
+      @config[:dns_servers] = @config[:dns_servers].split(',')
+      Log.logger.debug "Current config: #{@config}"
+      @options.each { |key, value| @config[key.to_sym] = value }
+      Log.logger.debug "Modified config: #{@config}"
+    end
 
+    def deploy_vpn
+      compiler = CfnVpn::Compiler.new(@name, @config)
+      template_body = compiler.compile
       Log.logger.info "Modifying cloudformation stack #{@name}-cfnvpn in #{@options['region']}"
-      cfn = CfnVpn::Cloudformation.new(@options['region'],@name)
-      change_set, change_set_type = cfn.create_change_set(template_path,@config['parameters'])
-      cfn.wait_for_changeset(change_set.id)
-      changes = cfn.get_change_set(change_set.id)
+      change_set, change_set_type = @deployer.create_change_set(template_body)
+      @deployer.wait_for_changeset(change_set.id)
+      changes = @deployer.get_change_set(change_set.id)
 
       Log.logger.warn("The following changes to the cfnvpn stack will be made")
       changes.changes.each do |change|
@@ -88,8 +78,8 @@ module CfnVpn
         exit 1
       end
 
-      cfn.execute_change_set(change_set.id)
-      cfn.wait_for_execute(change_set_type)
+      @deployer.execute_change_set(change_set.id)
+      @deployer.wait_for_execute(change_set_type)
       Log.logger.debug "Changeset #{change_set_type} complete"
     end
 

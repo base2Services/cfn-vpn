@@ -1,9 +1,8 @@
 require 'thor'
 require 'fileutils'
-require 'cfnvpn/cloudformation'
+require 'cfnvpn/deployer'
 require 'cfnvpn/certificates'
-require 'cfnvpn/cfhighlander'
-require 'cfnvpn/cloudformation'
+require 'cfnvpn/compiler'
 require 'cfnvpn/log'
 require 'cfnvpn/clientvpn'
 require 'cfnvpn/globals'
@@ -15,7 +14,6 @@ module CfnVpn
 
     argument :name
 
-    class_option :profile, aliases: :p, desc: 'AWS Profile'
     class_option :region, aliases: :r, default: ENV['AWS_REGION'], desc: 'AWS Region'
     class_option :verbose, desc: 'set log level to debug', type: :boolean
 
@@ -24,9 +22,9 @@ module CfnVpn
     class_option :easyrsa_local, type: :boolean, default: false, desc: 'run the easyrsa executable from your local rather than from docker'
     class_option :bucket, required: true, desc: 's3 bucket'
 
-    class_option :subnet_id, required: true, desc: 'subnet id to associate your vpn with'
+    class_option :subnet_ids, required: true, type: :array, desc: 'subnet id to associate your vpn with'
     class_option :cidr, default: '10.250.0.0/16', desc: 'cidr from which to assign client IP addresses'
-    class_option :dns_servers, desc: 'DNS Servers to push to clients.'
+    class_option :dns_servers, type: :array, desc: 'DNS Servers to push to clients.'
     
     class_option :split_tunnel, type: :boolean, default: false, desc: 'only push routes to the client on the vpn endpoint'
     class_option :internet_route, type: :boolean, default: true, desc: 'create a default route to the internet'
@@ -48,22 +46,20 @@ module CfnVpn
     end
 
     def initialize_config
-      @config = {}
-      @config['parameters'] = {}
-      @config['parameters']['EnvironmentName'] = @name
-      @config['parameters']['AssociationSubnetId'] = @options['subnet_id']
-      @config['parameters']['ClientCidrBlock'] = @options['cidr']
-      @config['parameters']['DnsServers'] = @options['dns_servers']
-      @config['parameters']['SplitTunnel'] = @options['split_tunnel'].to_s
-      @config['parameters']['InternetRoute'] = @options['internet_route'].to_s
-      @config['parameters']['Protocol'] = @options['protocol']
-      @config['template_version'] = '0.2.0'
+      @config = {
+        subnet_ids: @options['subnet_ids'],
+        cidr: @options['cidr'],
+        dns_servers: @options['dns_servers'],
+        split_tunnel: @options['split_tunnel'],
+        internet_route: @options['internet_route'],
+        protocol: @options['protocol']
+      }
     end
 
     def stack_exist
-      @cfn = CfnVpn::Cloudformation.new(@options['region'],@name)
-      if @cfn.does_cf_stack_exist()
-        Log.logger.error "#{@name}-cfnvpn stack already exists in this account in region #{@options['region']}"
+      @deployer = CfnVpn::Deployer.new(@options['region'],@name)
+      if @deployer.does_cf_stack_exist()
+        Log.logger.error "#{@name}-cfnvpn stack already exists in this account in region #{@options['region']}, use the modify command to alter the stack"
         exit 1
       end
     end
@@ -78,25 +74,21 @@ module CfnVpn
 
     def upload_certificates
       cert = CfnVpn::Certificates.new(@build_dir,@name,@options['easyrsa_local'])
-      @config['parameters']['ServerCertificateArn'] = cert.upload_certificates(@options['region'],'server','server',@options['server_cn'])
-      @config['parameters']['ClientCertificateArn'] = cert.upload_certificates(@options['region'],@client_cn,'client')
+      @config[:server_cert_arn] = cert.upload_certificates(@options['region'],'server','server',@options['server_cn'])
+      @config[:client_cert_arn] = cert.upload_certificates(@options['region'],@client_cn,'client')
       s3 = CfnVpn::S3.new(@options['region'],@options['bucket'],@name)
       s3.store_object("#{@build_dir}/certificates/ca.tar.gz")
     end
 
     def deploy_vpn
-      template('templates/cfnvpn.cfhighlander.rb.tt', "#{@build_dir}/#{@name}.cfhighlander.rb", @config, force: true)
-      Log.logger.debug "Generating cloudformation from #{@build_dir}/#{@name}.cfhighlander.rb"
-      cfhl = CfnVpn::CfHiglander.new(@options['region'],@name,@config,@build_dir)
-      template_path = cfhl.render()
-      Log.logger.debug "Cloudformation template #{template_path} generated and validated"
+      compiler = CfnVpn::Compiler.new(@name, @config)
+      template_body = compiler.compile
       Log.logger.info "Launching cloudformation stack #{@name}-cfnvpn in #{@options['region']}"
-      cfn = CfnVpn::Cloudformation.new(@options['region'],@name)
-      change_set, change_set_type = cfn.create_change_set(template_path, @config['parameters'])
-      cfn.wait_for_changeset(change_set.id)
-      cfn.execute_change_set(change_set.id)
-      cfn.wait_for_execute(change_set_type)
-      Log.logger.debug "Changeset #{change_set_type} complete"
+      change_set, change_set_type = @deployer.create_change_set(template_body)
+      @deployer.wait_for_changeset(change_set.id)
+      @deployer.execute_change_set(change_set.id)
+      @deployer.wait_for_execute(change_set_type)
+      Log.logger.info "Changeset #{change_set_type} complete"
     end
 
     def finish
