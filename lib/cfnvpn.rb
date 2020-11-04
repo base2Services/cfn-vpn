@@ -9,9 +9,7 @@ require 'cfnvpn/actions/sessions'
 require 'cfnvpn/actions/routes'
 require 'cfnvpn/actions/share'
 require 'cfnvpn/actions/embedded'
-require 'cfnvpn/actions/associate'
-require 'cfnvpn/actions/disassociate'
-require 'cfnvpn/actions/associations'
+require 'cfnvpn/actions/subnets'
 
 module CfnVpn
   class Cli < Thor
@@ -49,14 +47,8 @@ module CfnVpn
     register CfnVpn::Embedded, 'embedded', 'embedded [name]', 'Embed client certs into config and generate S3 presigned URL'
     tasks["embedded"].options = CfnVpn::Embedded.class_options
 
-    register CfnVpn::Associate, 'associate', 'associate [name]', 'Associate all subnets with the client vpn'
-    tasks["associate"].options = CfnVpn::Associate.class_options
-
-    register CfnVpn::Disassociate, 'disassociate', 'disassociate [name]', 'Disassociate all subnets with the client vpn'
-    tasks["disassociate"].options = CfnVpn::Disassociate.class_options
-
-    register CfnVpn::Associations, 'associations', 'associations [name]', 'Display all active associations'
-    tasks["associations"].options = CfnVpn::Associations.class_options
+    register CfnVpn::Subnets, 'subnets', 'subnets [name]', 'Manage subnet associations for the client vpn'
+    tasks["subnets"].options = CfnVpn::Subnets.class_options
 
   end
 end
