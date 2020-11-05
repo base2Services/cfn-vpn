@@ -1,4 +1,5 @@
 require 'cfndsl'
+require 'cfnvpn/templates/helper'
 
 module CfnVpn
   module Templates
@@ -61,6 +62,14 @@ module CfnVpn
             ClientVpnEndpointId Ref(:ClientVpnEndpoint)
             SubnetId subnet
           }
+
+          EC2_ClientVpnAuthorizationRule(:"RouteToInternetAuthorizationRule#{suffix}") {
+            DependsOn "ClientVpnTargetNetworkAssociation#{suffix}"
+            Description FnSub("#{name} client-vpn auth rule for subnet association ${ClientVpnTargetNetworkAssociation#{suffix}}")
+            AuthorizeAllGroups true
+            ClientVpnEndpointId Ref(:ClientVpnEndpoint)
+            TargetNetworkCidr CfnVpn::Templates::Helper.get_auth_cidr(config[:region], subnet)
+          }
         end
 
         if config[:subnet_ids].include? config[:internet_route]
@@ -76,7 +85,7 @@ module CfnVpn
         
           EC2_ClientVpnAuthorizationRule(:RouteToInternetAuthorizationRule) {
             DependsOn "ClientVpnTargetNetworkAssociation#{suffix}"
-            Description "#{name} client-vpn route to the internet through subnet #{config[:internet_route_subnet]}"
+            Description "#{name} client-vpn auth rule for internet traffic through subnet #{config[:internet_route_subnet]}"
             AuthorizeAllGroups true
             ClientVpnEndpointId Ref(:ClientVpnEndpoint)
             TargetNetworkCidr '0.0.0.0/0'
