@@ -23,7 +23,7 @@ module CfnVpn
     class_option :del_subnet_ids, type: :array, desc: 'delete subnet associations'
 
     class_option :dns_servers, type: :array, desc: 'DNS Servers to push to clients.'
-    class_option :del_dns_servers, type: :boolean, desc: 'Remove the DNS Servers from the client vpn'
+    class_option :no_dns_servers, type: :boolean, desc: 'Remove the DNS Servers from the client vpn'
 
     class_option :cidr, desc: 'cidr from which to assign client IP addresses'
     class_option :split_tunnel, type: :boolean, desc: 'only push routes to the client on the vpn endpoint'
