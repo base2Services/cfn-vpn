@@ -26,8 +26,8 @@ module CfnVpn
     class_option :cidr, default: '10.250.0.0/16', desc: 'cidr from which to assign client IP addresses'
     class_option :dns_servers, type: :array, desc: 'DNS Servers to push to clients.'
     
-    class_option :split_tunnel, type: :boolean, default: false, desc: 'only push routes to the client on the vpn endpoint'
-    class_option :internet_route, type: :boolean, default: true, desc: 'create a default route to the internet'
+    class_option :split_tunnel, type: :boolean, default: true, desc: 'only push routes to the client on the vpn endpoint'
+    class_option :internet_route, type: :string, desc: 'create a default route to the internet'
     class_option :protocol, type: :string, default: 'udp', enum: ['udp','tcp'], desc: 'set the protocol for the vpn connections'
 
 

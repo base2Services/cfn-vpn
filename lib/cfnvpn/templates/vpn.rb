@@ -61,24 +61,28 @@ module CfnVpn
             ClientVpnEndpointId Ref(:ClientVpnEndpoint)
             SubnetId subnet
           }
+        end
 
-          if config[:internet_route] == true
-            EC2_ClientVpnRoute(:"RouteToInternet#{suffix}") {
-              DependsOn "ClientVpnTargetNetworkAssociation#{suffix}"
-              Description "#{name} client-vpn route to the internet for subnet association"
-              ClientVpnEndpointId Ref(:ClientVpnEndpoint)
-              DestinationCidrBlock '0.0.0.0/0'
-              TargetVpcSubnetId subnet
-            }
-          
-            EC2_ClientVpnAuthorizationRule(:"RouteToInternetAuthorizationRule#{suffix}") {
-              DependsOn "ClientVpnTargetNetworkAssociation#{suffix}"
-              Description "#{name} client-vpn route to the internet"
-              AuthorizeAllGroups true
-              ClientVpnEndpointId Ref(:ClientVpnEndpoint)
-              TargetNetworkCidr '0.0.0.0/0'
-            }
-          end
+        if config[:subnet_ids].include? config[:internet_route]
+          suffix = "For#{config[:internet_route].gsub(/[^a-zA-Z0-9]/, "").capitalize}"
+
+          EC2_ClientVpnRoute(:RouteToInternet) {
+            DependsOn "ClientVpnTargetNetworkAssociation#{suffix}"
+            Description "#{name} client-vpn route to the internet through subnet #{config[:internet_route_subnet]}"
+            ClientVpnEndpointId Ref(:ClientVpnEndpoint)
+            DestinationCidrBlock '0.0.0.0/0'
+            TargetVpcSubnetId config[:internet_route]
+          }
+        
+          EC2_ClientVpnAuthorizationRule(:RouteToInternetAuthorizationRule) {
+            DependsOn "ClientVpnTargetNetworkAssociation#{suffix}"
+            Description "#{name} client-vpn route to the internet through subnet #{config[:internet_route_subnet]}"
+            AuthorizeAllGroups true
+            ClientVpnEndpointId Ref(:ClientVpnEndpoint)
+            TargetNetworkCidr '0.0.0.0/0'
+          }
+
+          output(:InternetRoute, config[:internet_route])
         end
 
         output(:ClientCertArn, config[:client_cert_arn])
@@ -87,13 +91,13 @@ module CfnVpn
         output(:DnsServers, config.fetch(:dns_servers, []).join(','))
         output(:SubnetIds, config[:subnet_ids].join(','))
         output(:SplitTunnel, config[:split_tunnel])
-        output(:InternetRoute, config[:internet_route])
         output(:Protocol, config[:protocol])
       end
 
       def output(name, value)
         Output(name) { Value value }
       end
+
     end
   end
 end

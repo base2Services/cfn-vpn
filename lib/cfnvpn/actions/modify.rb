@@ -27,7 +27,7 @@ module CfnVpn
 
     class_option :cidr, desc: 'cidr from which to assign client IP addresses'
     class_option :split_tunnel, type: :boolean, desc: 'only push routes to the client on the vpn endpoint'
-    class_option :internet_route, type: :boolean, desc: 'create a default route to the internet'
+    class_option :internet_route, type: :string, desc: '[subnet-id] create a default route to the internet through a subnet'
     class_option :protocol, type: :string, enum: ['udp','tcp'], desc: 'set the protocol for the vpn connections'
 
     def self.source_root
@@ -54,6 +54,7 @@ module CfnVpn
 
     def initialize_config
       @config = @deployer.get_outputs_from_stack()
+      @config[:region] = @options[:region]
       @config[:subnet_ids] = @config[:subnet_ids].split(',')
       @config[:dns_servers] = @config[:dns_servers].split(',')
       Log.logger.debug "Current config: #{@config}"
