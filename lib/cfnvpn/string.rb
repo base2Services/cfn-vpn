@@ -7,6 +7,10 @@ class String
     downcase
   end
 
+  def resource_safe
+    self.gsub(/[^a-zA-Z0-9]/, "").capitalize
+  end
+
   def colorize(color_code)
     "\e[#{color_code}m#{self}\e[0m"
   end

@@ -30,6 +30,9 @@ module CfnVpn
     class_option :internet_route, type: :string, desc: '[subnet-id] create a default route to the internet through a subnet'
     class_option :protocol, type: :string, enum: ['udp','tcp'], desc: 'set the protocol for the vpn connections'
 
+    class_option :start, type: :string, desc: 'cloudwatch event cron schedule in UTC to associate subnets to the client vpn'
+    class_option :stop, type: :string, desc: 'cloudwatch event cron schedule in UTC to disassociate subnets to the client vpn'
+
     def self.source_root
       File.dirname(__FILE__)
     end
@@ -57,7 +60,7 @@ module CfnVpn
       @config[:region] = @options[:region]
       @config[:subnet_ids] = @config[:subnet_ids].split(',')
       @config[:dns_servers] = @config[:dns_servers].split(',')
-      Log.logger.debug "Current config: #{@config}"
+      Log.logger.debug "Current config:\n#{@config}"
 
       if @options['add_subnet_ids']
         @config[:subnet_ids].concat @options['add_subnet_ids']
@@ -71,12 +74,11 @@ module CfnVpn
         @config[:dns_servers] = []
       end
       
-      @options.each do |key, value| 
-        if @config.has_key? key.to_sym
-          @config[key.to_sym] = value
-        end
+      @options.each do |key, value|
+        @config[key.to_sym] = value
       end
-      Log.logger.debug "Modified config: #{@config}"
+
+      Log.logger.debug "Modified config:\n#{@config}"
     end
 
     def deploy_vpn

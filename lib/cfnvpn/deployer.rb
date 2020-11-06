@@ -61,7 +61,8 @@ module CfnVpn
           }
         ],
         change_set_name: change_set_name,
-        change_set_type: change_set_type
+        change_set_type: change_set_type,
+        capabilities: ['CAPABILITY_IAM']
       }
 
       if !template_body.nil?

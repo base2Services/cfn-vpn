@@ -55,7 +55,7 @@ module CfnVpn
         }
 
         config[:subnet_ids].each do |subnet|
-          suffix = "For#{subnet.gsub(/[^a-zA-Z0-9]/, "").capitalize}"
+          suffix = "For#{subnet.resource_safe}"
 
           EC2_ClientVpnTargetNetworkAssociation(:"ClientVpnTargetNetworkAssociation#{suffix}") {
             Condition(:EnableSubnetAssociation)
@@ -64,6 +64,7 @@ module CfnVpn
           }
 
           EC2_ClientVpnAuthorizationRule(:"RouteToInternetAuthorizationRule#{suffix}") {
+            Condition(:EnableSubnetAssociation)
             DependsOn "ClientVpnTargetNetworkAssociation#{suffix}"
             Description FnSub("#{name} client-vpn auth rule for subnet association ${ClientVpnTargetNetworkAssociation#{suffix}}")
             AuthorizeAllGroups true
@@ -73,7 +74,7 @@ module CfnVpn
         end
 
         if config[:subnet_ids].include? config[:internet_route]
-          suffix = "For#{config[:internet_route].gsub(/[^a-zA-Z0-9]/, "").capitalize}"
+          suffix = "For#{config[:internet_route].resource_safe}"
 
           EC2_ClientVpnRoute(:RouteToInternet) {
             DependsOn "ClientVpnTargetNetworkAssociation#{suffix}"
@@ -93,6 +94,12 @@ module CfnVpn
 
           output(:InternetRoute, config[:internet_route])
         end
+        
+        if config[:start] || config[:stop]
+          scheduler(name, config[:start], config[:stop])
+          output(:Start, config[:start]) if config[:start]
+          output(:Stop, config[:stop]) if config[:stop]
+        end
 
         output(:ClientCertArn, config[:client_cert_arn])
         output(:ServerCertArn, config[:server_cert_arn])
@@ -105,6 +112,166 @@ module CfnVpn
 
       def output(name, value)
         Output(name) { Value value }
+      end
+
+      def scheduler(name, start, stop)
+        IAM_Role(:ClientVpnSchedulerRole) {
+          AssumeRolePolicyDocument({
+            Version: '2012-10-17',
+            Statement: [{
+              Effect: 'Allow',
+              Principal: { Service: [ 'lambda.amazonaws.com' ] },
+              Action: [ 'sts:AssumeRole' ]
+            }]
+          })
+          Path '/cfnvpn/'
+          Policies([
+            {
+              PolicyName: 'cloudformation',
+              PolicyDocument: {
+                Version: '2012-10-17',
+                Statement: [{
+                  Effect: 'Allow',
+                  Action: [
+                    'cloudformation:UpdateStack'
+                  ],
+                  Resource: FnSub("arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/#{name}-cfnvpn/*")
+                }]
+              }
+            },
+            {
+              PolicyName: 'client-vpn',
+              PolicyDocument: {
+                Version: '2012-10-17',
+                Statement: [{
+                  Effect: 'Allow',
+                  Action: [ 
+                    'ec2:AssociateClientVpnTargetNetwork',
+                    'ec2:DisassociateClientVpnTargetNetwork',
+                    'ec2:DescribeClientVpnTargetNetworks',
+                    'ec2:AuthorizeClientVpnIngress',
+                    'ec2:RevokeClientVpnIngress',
+                    'ec2:DescribeClientVpnAuthorizationRules',
+                    'ec2:DescribeClientVpnEndpoints',
+                    'ec2:DescribeClientVpnConnections',
+                    'ec2:TerminateClientVpnConnections'
+                  ],
+                  Resource: '*'
+                }]
+              }
+            },
+            {
+              PolicyName: 'logging',
+              PolicyDocument: {
+                Version: '2012-10-17',
+                Statement: [{
+                  Effect: 'Allow',
+                  Action: [
+                    'logs:DescribeLogGroups',
+                    'logs:CreateLogGroup',
+                    'logs:CreateLogStream',
+                    'logs:DescribeLogStreams',
+                    'logs:PutLogEvents'
+                  ],
+                  Resource: '*'
+                }]
+              }
+            }
+          ])
+          Tags([
+            { Key: 'Name', Value: "#{name}-cfnvpn-scheduler-role" },
+            { Key: 'Environment', Value: 'cfnvpn' }
+          ])
+        }
+
+        Lambda_Function(:ClientVpnSchedulerFunction) {
+          Runtime 'python3.7'
+          Role FnGetAtt(:ClientVpnSchedulerRole, :Arn)
+          MemorySize '128'
+          Handler 'index.handler'
+          Code({
+            ZipFile: <<~EOS
+            import boto3
+
+            def handler(event, context):
+
+              print(f"updating cfn-vpn stack {event['StackName']} parameter AssociateSubnets with value {event['AssociateSubnets']}")
+
+              if event['AssociateSubnets'] == 'false':
+                print(f"terminating current vpn sessions to {event['ClientVpnEndpointId']}")
+                ec2 = boto3.client('ec2')
+                resp = ec2.describe_client_vpn_connections(ClientVpnEndpointId=event['ClientVpnEndpointId'])
+                for conn in resp['Connections']:
+                  if conn['Status']['Code'] == 'active':
+                    ec2.terminate_client_vpn_connections(
+                      ClientVpnEndpointId=event['ClientVpnEndpointId'],
+                      ConnectionId=conn['ConnectionId']
+                    )
+                    print(f"terminated session {conn['ConnectionId']}")
+
+              client = boto3.client('cloudformation')
+              print(client.update_stack(
+                StackName=event['StackName'],
+                UsePreviousTemplate=True,
+                Capabilities=['CAPABILITY_IAM'],
+                Parameters=[
+                  {
+                    'ParameterKey': 'AssociateSubnets',
+                    'ParameterValue': event['AssociateSubnets']
+                  }
+                ]
+              ))
+
+              return 'OK'
+            EOS
+          })
+          Tags([
+            { Key: 'Name', Value: "#{name}-cfnvpn-scheduler-function" },
+            { Key: 'Environment', Value: 'cfnvpn' }
+          ])
+        }
+
+        Logs_LogGroup(:ClientVpnSchedulerLogGroup) {
+          LogGroupName FnSub("/aws/lambda/${ClientVpnSchedulerFunction}")
+          RetentionInDays 30
+        }
+
+        Lambda_Permission(:ClientVpnSchedulerFunctionPermissions) {
+          FunctionName Ref(:ClientVpnSchedulerFunction)
+          Action 'lambda:InvokeFunction'
+          Principal 'events.amazonaws.com'
+        }
+
+        if start
+          Events_Rule(:ClientVpnSchedulerStart) {
+            State 'ENABLED'
+            Description "cfnvpn start schedule"
+            ScheduleExpression "cron(#{start})"
+            Targets([
+              { 
+                Arn: FnGetAtt(:ClientVpnSchedulerFunction, :Arn),
+                Id: 'cfnvpnschedulerstart',
+                Input: FnSub({ StackName: "#{name}-cfnvpn", AssociateSubnets: 'true', ClientVpnEndpointId: "${ClientVpnEndpoint}" }.to_json)
+              }
+            ])
+          }
+        end
+
+        if stop
+          Events_Rule(:ClientVpnSchedulerStop) {
+            State 'ENABLED'
+            Description "cfnvpn stop schedule"
+            ScheduleExpression "cron(#{stop})"
+            Targets([
+              { 
+                Arn: FnGetAtt(:ClientVpnSchedulerFunction, :Arn),
+                Id: 'cfnvpnschedulerstop',
+                Input: FnSub({ StackName: "#{name}-cfnvpn", AssociateSubnets: 'false', ClientVpnEndpointId: "${ClientVpnEndpoint}" }.to_json)
+              }
+            ])
+          }
+        end
+
       end
 
     end

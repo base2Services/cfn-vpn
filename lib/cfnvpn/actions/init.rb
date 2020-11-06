@@ -30,6 +30,8 @@ module CfnVpn
     class_option :internet_route, type: :string, desc: 'create a default route to the internet'
     class_option :protocol, type: :string, default: 'udp', enum: ['udp','tcp'], desc: 'set the protocol for the vpn connections'
 
+    class_option :start, type: :string, desc: 'cloudwatch event cron schedule in UTC to associate subnets to the client vpn'
+    class_option :stop, type: :string, desc: 'cloudwatch event cron schedule in UTC to disassociate subnets to the client vpn'
 
     def self.source_root
       File.dirname(__FILE__)
@@ -47,12 +49,15 @@ module CfnVpn
 
     def initialize_config
       @config = {
+        region: @options['region'],
         subnet_ids: @options['subnet_ids'],
         cidr: @options['cidr'],
         dns_servers: @options['dns_servers'],
         split_tunnel: @options['split_tunnel'],
         internet_route: @options['internet_route'],
-        protocol: @options['protocol']
+        protocol: @options['protocol'],
+        start: @options['start'],
+        stop: @options['stop']
       }
     end
 
