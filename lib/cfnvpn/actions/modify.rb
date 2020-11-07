@@ -70,7 +70,7 @@ module CfnVpn
         @config[:subnet_ids].reject!{ |subnet| @options['del_subnet_ids'].include? subnet }
       end
 
-      if @options['del_dns_servers']
+      if @options['no_dns_servers']
         @config[:dns_servers] = []
       end
       
