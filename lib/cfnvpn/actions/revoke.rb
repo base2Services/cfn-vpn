@@ -23,7 +23,7 @@ module CfnVpn::Actions
     end
 
     def set_loglevel
-      Log.logger.level = Logger::DEBUG if @options['verbose']
+      logger.level = Logger::DEBUG if @options['verbose']
     end
 
     def set_directory
@@ -36,15 +36,15 @@ module CfnVpn::Actions
       s3 = CfnVpn::S3.new(@options['region'],@options['bucket'],@name)
       s3.get_object("#{@cert_dir}/ca.tar.gz")
       s3.get_object("#{@cert_dir}/#{@options['client_cn']}.tar.gz")
-      Log.logger.info "Generating new client certificate #{@options['client_cn']} using openvpn easy-rsa"
-      Log.logger.debug cert.revoke_client(@options['client_cn'])
+      logger.info "Generating new client certificate #{@options['client_cn']} using openvpn easy-rsa"
+      logger.debug cert.revoke_client(@options['client_cn'])
     end
 
     def apply_rekocation_list
       vpn = CfnVpn::ClientVpn.new(@name,@options['region'])
       endpoint_id = vpn.get_endpoint_id()
       vpn.put_revoke_list(endpoint_id,"#{@cert_dir}/crl.pem")
-      Log.logger.info("revoked client #{@options['client_cn']} from #{endpoint_id}")
+      logger.info("revoked client #{@options['client_cn']} from #{endpoint_id}")
     end
 
   end

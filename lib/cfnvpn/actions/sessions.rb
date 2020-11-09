@@ -22,7 +22,7 @@ module CfnVpn::Actions
     end
 
     def set_loglevel
-      Log.logger.level = Logger::DEBUG if @options['verbose']
+      logger.level = Logger::DEBUG if @options['verbose']
     end
 
     def set_directory
@@ -41,11 +41,11 @@ module CfnVpn::Actions
         if session.any? && session.status.code == "active"
           terminate = yes? "Terminate connection #{@options['kill']} for #{session.common_name}?", :yellow
           if terminate
-            Log.logger.info "Terminating connection #{@options['kill']} for #{session.common_name}"
+            logger.info "Terminating connection #{@options['kill']} for #{session.common_name}"
             @vpn.kill_session(@endpoint_id,@options['kill'])
           end
         else
-          Log.logger.error "Connection id #{@options['kill']} doesn't exist or is not active"
+          logger.error "Connection id #{@options['kill']} doesn't exist or is not active"
         end
       end
     end

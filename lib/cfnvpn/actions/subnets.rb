@@ -16,13 +16,13 @@ module CfnVpn::Actions
     class_option :disassociate, aliases: :d, desc: 'disassociate all subnets with the client vpn', type: :boolean
 
     def set_loglevel
-      Log.logger.level = Logger::DEBUG if @options['verbose']
+      logger.level = Logger::DEBUG if @options['verbose']
     end
 
     def stack_exist
       @deployer = CfnVpn::Deployer.new(@options['region'],@name)
       if !@deployer.does_cf_stack_exist()
-        Log.logger.error "#{@name}-cfnvpn stack doesn't exists in this account and region #{@options['region']}"
+        logger.error "#{@name}-cfnvpn stack doesn't exists in this account and region #{@options['region']}"
         exit 1
       end
     end
@@ -34,14 +34,14 @@ module CfnVpn::Actions
     def associate
       if @options[:associate]
         if !@associated
-          Log.logger.info "Associating subnets ..."
+          logger.info "Associating subnets ..."
           change_set, change_set_type = @deployer.create_change_set(parameters: {"AssociateSubnets" => 'true'})
           @deployer.wait_for_changeset(change_set.id)
           @deployer.execute_change_set(change_set.id)
           @deployer.wait_for_execute(change_set_type)
-          Log.logger.info "Association complete"
+          logger.info "Association complete"
         else
-          Log.logger.warn "Client-VPN #{name} subnets are already associated"
+          logger.warn "Client-VPN #{name} subnets are already associated"
         end
       end
     end
@@ -49,14 +49,14 @@ module CfnVpn::Actions
     def disassociate
       if @options[:disassociate]
         if @associated
-          Log.logger.info "Disassociating subnets ..."
+          logger.info "Disassociating subnets ..."
           change_set, change_set_type = @deployer.create_change_set(parameters: {"AssociateSubnets" => 'false'})
           @deployer.wait_for_changeset(change_set.id)
           @deployer.execute_change_set(change_set.id)
           @deployer.wait_for_execute(change_set_type)
-          Log.logger.info "Disassociation complete"
+          logger.info "Disassociation complete"
         else
-          Log.logger.warn "Client-VPN #{name} subnets are already disassociated"
+          logger.warn "Client-VPN #{name} subnets are already disassociated"
         end
       end
     end

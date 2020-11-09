@@ -38,19 +38,19 @@ module CfnVpn::Actions
     end
 
     def set_loglevel
-      Log.logger.level = Logger::DEBUG if @options['verbose']
+      logger.level = Logger::DEBUG if @options['verbose']
     end
 
     def create_build_directory
       @build_dir = "#{CfnVpn.cfnvpn_path}/#{@name}"
-      Log.logger.debug "creating directory #{@build_dir}"
+      logger.debug "creating directory #{@build_dir}"
       FileUtils.mkdir_p(@build_dir)
     end
 
     def stack_exist
       @deployer = CfnVpn::Deployer.new(@options['region'],@name)
       if !@deployer.does_cf_stack_exist()
-        Log.logger.error "#{@name}-cfnvpn stack doesn't exists in this account in region #{@options['region']}\n Try running `cfn-vpn init #{@name}` to setup the stack"
+        logger.error "#{@name}-cfnvpn stack doesn't exists in this account in region #{@options['region']}\n Try running `cfn-vpn init #{@name}` to setup the stack"
         exit 1
       end
     end
@@ -60,7 +60,7 @@ module CfnVpn::Actions
       @config[:region] = @options[:region]
       @config[:subnet_ids] = @config[:subnet_ids].split(',')
       @config[:dns_servers] = @config[:dns_servers].split(',')
-      Log.logger.debug "Current config:\n#{@config}"
+      logger.debug "Current config:\n#{@config}"
 
       if @options['add_subnet_ids']
         @config[:subnet_ids].concat @options['add_subnet_ids']
@@ -78,13 +78,13 @@ module CfnVpn::Actions
         @config[key.to_sym] = value
       end
 
-      Log.logger.debug "Modified config:\n#{@config}"
+      logger.debug "Modified config:\n#{@config}"
     end
 
     def deploy_vpn
       compiler = CfnVpn::Compiler.new(@name, @config)
       template_body = compiler.compile
-      Log.logger.info "Creating cloudformation changeset for stack #{@name}-cfnvpn in #{@options['region']}"
+      logger.info "Creating cloudformation changeset for stack #{@name}-cfnvpn in #{@options['region']}"
       change_set, change_set_type = @deployer.create_change_set(template_body: template_body)
       @deployer.wait_for_changeset(change_set.id)
       changeset_response = @deployer.get_change_set(change_set.id)
@@ -112,23 +112,23 @@ module CfnVpn::Actions
         puts table.to_s.send(change_colours[type])
       end
 
-      Log.logger.info "Cloudformation changeset changes:"
+      logger.info "Cloudformation changeset changes:"
       puts "\n"
       continue = yes? "Continue?", :green
       if !continue
-        Log.logger.info("Cancelled cfn-vpn modifiy #{@name}")
+        logger.info("Cancelled cfn-vpn modifiy #{@name}")
         exit 1
       end
 
       @deployer.execute_change_set(change_set.id)
       @deployer.wait_for_execute(change_set_type)
-      Log.logger.info "Changeset #{change_set_type} complete"
+      logger.info "Changeset #{change_set_type} complete"
     end
 
     def finish
       vpn = CfnVpn::ClientVpn.new(@name,@options['region'])
       @endpoint_id = vpn.get_endpoint_id()
-      Log.logger.info "Client VPN #{@endpoint_id} modified."
+      logger.info "Client VPN #{@endpoint_id} modified."
     end
 
   end

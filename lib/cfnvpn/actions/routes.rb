@@ -23,7 +23,7 @@ module CfnVpn::Actions
     end
 
     def set_loglevel
-      Log.logger.level = Logger::DEBUG if @options['verbose']
+      logger.level = Logger::DEBUG if @options['verbose']
     end
 
     def set_directory
@@ -33,18 +33,18 @@ module CfnVpn::Actions
     def add_route
       if !@options['add'].nil?
         if @options['desc'].nil?
-          Log.logger.error "--desc option must be provided if adding a new route"
+          logger.error "--desc option must be provided if adding a new route"
           exit 1
         end
 
         vpn = CfnVpn::ClientVpn.new(@name,@options['region'])
 
         if vpn.route_exists?(@options['add'])
-          Log.logger.error "route #{@options['add']} already exists in the client vpn"
+          logger.error "route #{@options['add']} already exists in the client vpn"
           exit 1
         end
 
-        Log.logger.info "Adding new route for #{@options['add']}"
+        logger.info "Adding new route for #{@options['add']}"
         vpn.add_route(@options['add'],@options['desc'])
       end
     end
@@ -54,12 +54,12 @@ module CfnVpn::Actions
         vpn = CfnVpn::ClientVpn.new(@name,@options['region'])
 
         if !vpn.route_exists?(@options['del'])
-          Log.logger.error "route #{@options['del']} doesn't exist in the client vpn"
+          logger.error "route #{@options['del']} doesn't exist in the client vpn"
           exit 1
         end
         delete = yes? "Delete route #{@options['del']}?", :yellow
         if delete
-          Log.logger.info "Deleting route for #{@options['del']}"
+          logger.info "Deleting route for #{@options['del']}"
           vpn.del_route(@options['del'])
         end
       end

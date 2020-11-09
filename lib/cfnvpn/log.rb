@@ -3,7 +3,7 @@ require 'logger'
 module CfnVpn
   module Log
 
-    def self.colors
+    def colors
       @colors ||= {
         ERROR: 31, # red
         WARN: 33, # yellow
@@ -12,7 +12,7 @@ module CfnVpn
       }
     end
 
-    def self.logger
+    def logger
       if @logger.nil?
         @logger = Logger.new(STDOUT)
         @logger.level = Logger::INFO
@@ -23,7 +23,7 @@ module CfnVpn
       @logger
     end
 
-    def self.logger=(logger)
+    def logger=(logger)
       @logger = logger
     end
 

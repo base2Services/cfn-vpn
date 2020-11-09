@@ -14,7 +14,7 @@ module CfnVpn
     def store_object(file)
       body = File.open(file, 'rb').read
       file_name = file.split('/').last
-      Log.logger.debug("uploading #{file} to s3://#{@bucket}/#{@path}/#{file_name}")
+      logger.debug("uploading #{file} to s3://#{@bucket}/#{@path}/#{file_name}")
       @client.put_object({
         body: body,
         bucket: @bucket,
@@ -26,7 +26,7 @@ module CfnVpn
 
     def get_object(file)
       file_name = file.split('/').last
-      Log.logger.debug("downloading s3://#{@bucket}/#{@path}/#{file_name} to #{file}")
+      logger.debug("downloading s3://#{@bucket}/#{@path}/#{file_name} to #{file}")
       @client.get_object(
         response_target: file,
         bucket: @bucket,
@@ -34,7 +34,7 @@ module CfnVpn
     end
 
     def store_config(config)
-      Log.logger.debug("uploading config to s3://#{@bucket}/#{@path}/#{@name}.config.ovpn")
+      logger.debug("uploading config to s3://#{@bucket}/#{@path}/#{@name}.config.ovpn")
       @client.put_object({
         body: config,
         bucket: @bucket,
@@ -54,7 +54,7 @@ module CfnVpn
     end
 
     def store_embedded_config(config, cn)
-      Log.logger.debug("uploading config to s3://#{@bucket}/#{@path}/#{@name}_#{cn}.config.ovpn")
+      logger.debug("uploading config to s3://#{@bucket}/#{@path}/#{@name}_#{cn}.config.ovpn")
       @client.put_object({
         body: config,
         bucket: @bucket,

@@ -11,12 +11,12 @@ module CfnVpn
     end
 
     def compile
-      Log.logger.debug "Compiling cloudformation"
+      logger.debug "Compiling cloudformation"
       template = CfnVpn::Templates::Vpn.new()
       template.render(@name, @config)
-      Log.logger.debug "Validating cloudformation"
+      logger.debug "Validating cloudformation"
       valid = template.validate
-      Log.logger.debug "Clouformation Template\n\n#{JSON.parse(valid.to_json).to_yaml}"
+      logger.debug "Clouformation Template\n\n#{JSON.parse(valid.to_json).to_yaml}"
       return JSON.parse(valid.to_json).to_yaml
     end
 

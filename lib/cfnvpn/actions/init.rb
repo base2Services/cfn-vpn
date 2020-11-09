@@ -38,12 +38,12 @@ module CfnVpn::Actions
     end
 
     def set_loglevel
-      Log.logger.level = Logger::DEBUG if @options['verbose']
+      logger.level = Logger::DEBUG if @options['verbose']
     end
 
     def create_build_directory
       @build_dir = "#{CfnVpn.cfnvpn_path}/#{@name}"
-      Log.logger.debug "creating directory #{@build_dir}"
+      logger.debug "creating directory #{@build_dir}"
       FileUtils.mkdir_p(@build_dir)
     end
 
@@ -64,14 +64,14 @@ module CfnVpn::Actions
     def stack_exist
       @deployer = CfnVpn::Deployer.new(@options['region'],@name)
       if @deployer.does_cf_stack_exist()
-        Log.logger.error "#{@name}-cfnvpn stack already exists in this account in region #{@options['region']}, use the modify command to alter the stack"
+        logger.error "#{@name}-cfnvpn stack already exists in this account in region #{@options['region']}, use the modify command to alter the stack"
         exit 1
       end
     end
 
     # create certificates
     def generate_server_certificates
-      Log.logger.info "Generating certificates using openvpn easy-rsa"
+      logger.info "Generating certificates using openvpn easy-rsa"
       cert = CfnVpn::Certificates.new(@build_dir,@name,@options['easyrsa_local'])
       @client_cn = @options['client_cn'] ? @options['client_cn'] : "client-vpn.#{@options['server_cn']}"
       cert.generate_ca(@options['server_cn'],@client_cn)
@@ -88,18 +88,18 @@ module CfnVpn::Actions
     def deploy_vpn
       compiler = CfnVpn::Compiler.new(@name, @config)
       template_body = compiler.compile
-      Log.logger.info "Launching cloudformation stack #{@name}-cfnvpn in #{@options['region']}"
+      logger.info "Launching cloudformation stack #{@name}-cfnvpn in #{@options['region']}"
       change_set, change_set_type = @deployer.create_change_set(template_body: template_body)
       @deployer.wait_for_changeset(change_set.id)
       @deployer.execute_change_set(change_set.id)
       @deployer.wait_for_execute(change_set_type)
-      Log.logger.info "Changeset #{change_set_type} complete"
+      logger.info "Changeset #{change_set_type} complete"
     end
 
     def finish
       vpn = CfnVpn::ClientVpn.new(@name,@options['region'])
       @endpoint_id = vpn.get_endpoint_id()
-      Log.logger.info "Client VPN #{@endpoint_id} created. Run `cfn-vpn config #{@name}` to setup the client config"
+      logger.info "Client VPN #{@endpoint_id} created. Run `cfn-vpn config #{@name}` to setup the client config"
     end
 
   end

@@ -44,7 +44,7 @@ module CfnVpn
         @docker_cmd << "-v #{@cert_dir}:/easy-rsa/output"
         @docker_cmd << @easyrsa_image
         @docker_cmd << "sh -c 'create-ca'"
-        Log.logger.debug `#{@docker_cmd.join(' ')}`
+        logger.debug `#{@docker_cmd.join(' ')}`
       end
     end
 
@@ -59,7 +59,7 @@ module CfnVpn
         @docker_cmd << "-v #{@cert_dir}:/easy-rsa/output"
         @docker_cmd << @easyrsa_image
         @docker_cmd << "sh -c 'create-client'"
-        Log.logger.debug `#{@docker_cmd.join(' ')}`
+        logger.debug `#{@docker_cmd.join(' ')}`
       end
     end
 
@@ -76,7 +76,7 @@ module CfnVpn
         @docker_cmd << "-v #{@cert_dir}:/easy-rsa/output"
         @docker_cmd << @easyrsa_image
         @docker_cmd << "sh -c 'revoke-client'"
-        Log.logger.debug `#{@docker_cmd.join(' ')}`
+        logger.debug `#{@docker_cmd.join(' ')}`
       end
     end
 
@@ -84,7 +84,7 @@ module CfnVpn
       cn = cn.nil? ? cert : cn
       acm = CfnVpn::Acm.new(region, @cert_dir)
       arn = acm.import_certificate("#{cert}.crt", "#{cert}.key", "ca.crt")
-      Log.logger.debug "Uploaded #{type} certificate to ACM #{arn}"
+      logger.debug "Uploaded #{type} certificate to ACM #{arn}"
       acm.tag_certificate(arn,cn,type,@cfnvpn_name)
       return arn
     end

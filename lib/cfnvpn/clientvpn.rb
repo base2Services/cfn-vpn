@@ -16,7 +16,7 @@ module CfnVpn
         filters: [{ name: "tag:cfnvpn:name", values: [@name] }]
       })
       if resp.client_vpn_endpoints.empty?
-        Log.logger.error "unable to find endpoint with tag Key: cfnvpn:name with Value: #{@name}"
+        logger.error "unable to find endpoint with tag Key: cfnvpn:name with Value: #{@name}"
         raise "Unable to find client vpn"
       end
       return resp.client_vpn_endpoints.first
