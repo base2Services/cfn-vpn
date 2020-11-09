@@ -4,7 +4,7 @@ require 'cfnvpn/log'
 require 'cfnvpn/s3'
 require 'cfnvpn/globals'
 
-module CfnVpn
+module CfnVpn::Actions
   class Client < Thor::Group
     include Thor::Actions
     include CfnVpn::Log

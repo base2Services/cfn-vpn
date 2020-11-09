@@ -2,7 +2,7 @@ require 'thor'
 require 'fileutils'
 require 'cfnvpn/log'
 
-module CfnVpn
+module CfnVpn::Actions
   class Subnets < Thor::Group
     include Thor::Actions
     include CfnVpn::Log

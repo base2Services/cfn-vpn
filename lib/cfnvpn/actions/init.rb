@@ -7,7 +7,7 @@ require 'cfnvpn/log'
 require 'cfnvpn/clientvpn'
 require 'cfnvpn/globals'
 
-module CfnVpn
+module CfnVpn::Actions
   class Init < Thor::Group
     include Thor::Actions
     include CfnVpn::Log

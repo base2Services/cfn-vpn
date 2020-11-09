@@ -1,7 +1,7 @@
 require 'cfnvpn/log'
 require 'cfnvpn/s3'
 
-module CfnVpn
+module CfnVpn::Actions
   class Share < Thor::Group
     include Thor::Actions
     include CfnVpn::Log
