@@ -43,6 +43,7 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency 'aws-sdk-acm', '~> 1', '<2'
   spec.add_runtime_dependency 'aws-sdk-s3', '~> 1', '<2'
   spec.add_runtime_dependency 'aws-sdk-cloudformation', '~> 1', '<2'
+  spec.add_runtime_dependency 'aws-sdk-ssm', '~> 1', '<2'
 
   spec.add_development_dependency "bundler", "~> 2.0"
   spec.add_development_dependency "rake", "~> 13.0"

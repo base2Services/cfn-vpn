@@ -7,6 +7,7 @@ require 'cfnvpn/compiler'
 require 'cfnvpn/log'
 require 'cfnvpn/clientvpn'
 require 'cfnvpn/globals'
+require 'cfnvpn/config'
 
 module CfnVpn::Actions
   class Modify < Thor::Group
@@ -56,11 +57,13 @@ module CfnVpn::Actions
     end
 
     def initialize_config
-      @config = @deployer.get_outputs_from_stack()
-      @config[:region] = @options[:region]
-      @config[:subnet_ids] = @config[:subnet_ids].split(',')
-      @config[:dns_servers] = @config[:dns_servers].split(',')
+      @config = CfnVpn::Config.get_config(@options[:region], @name)
+
       logger.debug "Current config:\n#{@config}"
+
+      @options.each do |key, value|
+        @config[key.to_sym] = value
+      end
 
       if @options['add_subnet_ids']
         @config[:subnet_ids].concat @options['add_subnet_ids']
@@ -72,10 +75,6 @@ module CfnVpn::Actions
 
       if @options['no_dns_servers']
         @config[:dns_servers] = []
-      end
-      
-      @options.each do |key, value|
-        @config[key.to_sym] = value
       end
 
       logger.debug "Modified config:\n#{@config}"

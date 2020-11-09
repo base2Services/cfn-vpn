@@ -95,6 +95,18 @@ module CfnVpn
           output(:InternetRoute, config[:internet_route])
         end
         
+        SSM_Parameter(:CfnVpnConfig) {
+          Description "#{name} cfnvpn config"
+          Name "/cfnvpn/config/#{name}"
+          Tier 'Standard'
+          Type 'String'
+          Value config.to_json
+          Tags({
+            Name:  "#{name}-cfnvpn-config",
+            Environment: 'cfnvpn'
+          })
+        }
+
         if config[:start] || config[:stop]
           scheduler(name, config[:start], config[:stop])
           output(:Start, config[:start]) if config[:start]
