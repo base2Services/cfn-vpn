@@ -29,19 +29,29 @@ module CfnVpn
         EC2_ClientVpnEndpoint(:ClientVpnEndpoint) {
           Description FnSub("cfnvpn #{name} AWS Client-VPN")
           AuthenticationOptions([
+          if config[:type] == 'federated'
+            {
+              FederatedAuthentication: {
+                SAMLProviderArn: config[:federated],
+                SelfServiceSAMLProviderArn: config[:saml_arn]
+              },
+              Type: 'federated-authentication'
+            }
+          else
             {
               MutualAuthentication: {
                 ClientRootCertificateChainArn: config[:client_cert_arn]
               },
               Type: 'certificate-authentication'
             }
+          end
           ])
+          ServerCertificateArn config[:server_cert_arn]
           ClientCidrBlock config[:cidr]
           ConnectionLogOptions({
             CloudwatchLogGroup: Ref(:ClientVpnLogGroup),
             Enabled: true
           })
-          ServerCertificateArn config[:server_cert_arn]
           DnsServers config[:dns_servers] if config.fetch(:dns_servers, []).any?
           TagSpecifications([{
             ResourceType: "client-vpn-endpoint",
@@ -145,17 +155,45 @@ module CfnVpn
           output(:Stop, config[:stop]) if config[:stop]
         end
 
-        output(:ClientCertArn, config[:client_cert_arn])
         output(:ServerCertArn, config[:server_cert_arn])
         output(:Cidr, config[:cidr])
         output(:DnsServers, config.fetch(:dns_servers, []).join(','))
         output(:SubnetIds, config[:subnet_ids].join(','))
         output(:SplitTunnel, config[:split_tunnel])
         output(:Protocol, config[:protocol])
+        output(:Type, config[:type])
+
+        if config[:type] == 'federated'
+          output(:SamlArn, config[:saml_arn])
+        else
+          output(:ClientCertArn, config[:client_cert_arn])
+        end
       end
 
       def output(name, value)
         Output(name) { Value value }
+      end
+
+      def federated_vpn()
+        EC2_ClientVpnEndpoint(:ClientVpnEndpoint) {
+          Description FnSub("cfnvpn #{name} AWS Client-VPN")
+          
+          ClientCidrBlock config[:cidr]
+          ConnectionLogOptions({
+            CloudwatchLogGroup: Ref(:ClientVpnLogGroup),
+            Enabled: true
+          })
+          DnsServers config[:dns_servers] if config.fetch(:dns_servers, []).any?
+          TagSpecifications([{
+            ResourceType: "client-vpn-endpoint",
+            Tags: [
+              { Key: 'Name', Value: name },
+              { Key: 'Environment', Value: name }
+            ]
+          }])
+          TransportProtocol config[:protocol]
+          SplitTunnel config[:split_tunnel]
+        }
       end
 
       def scheduler(name, start, stop)
