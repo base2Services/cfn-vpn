@@ -33,12 +33,7 @@ module CfnVpn
       change_set_name = "#{@stack_name}-#{CfnVpn::CHANGE_SET_VERSION}-#{Time.now.utc.strftime("%Y%m%d%H%M%S")}"
       change_set_type = get_change_set_type()
 
-      if change_set_type == 'CREATE'
-        params = get_parameters_from_template(template_body)
-      else
-        params = get_parameters_from_stack()
-      end
-
+      params = get_parameters_from_template(template_body)
       params.each do |param|
         if !parameters[param[:parameter_key]].nil?
           param[:parameter_value] = parameters[param[:parameter_key]]
@@ -120,6 +115,14 @@ module CfnVpn
       stack = resp.stacks.first
       parameter = stack.parameters.detect {|p| p.parameter_key == parameter}
       return parameter ? parameter.parameter_value : nil
+    end
+
+    def get_parameters_from_stack_hash()
+      resp = @client.describe_stacks({
+        stack_name: @stack_name,
+      })
+      stack = resp.stacks.first
+      return Hash[stack.parameters.collect {|parameter| [parameter.parameter_key.to_sym, parameter.parameter_value]}]
     end
 
     def get_outputs_from_stack()
