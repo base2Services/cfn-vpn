@@ -4,7 +4,7 @@ require 'cfnvpn/s3'
 module CfnVpn::Actions
   class Share < Thor::Group
     include Thor::Actions
-    include CfnVpn::Log
+    
 
     argument :name
 
@@ -21,13 +21,13 @@ module CfnVpn::Actions
     end
 
     def set_loglevel
-      logger.level = Logger::DEBUG if @options['verbose']
+      CfnVpn::Log.logger.level = Logger::DEBUG if @options['verbose']
     end
 
     def copy_config_to_s3
       vpn = CfnVpn::ClientVpn.new(@name,@options['region'])
       @endpoint_id = vpn.get_endpoint_id()
-      logger.debug "downloading client config for #{@endpoint_id}"
+      CfnVpn::Log.logger.debug "downloading client config for #{@endpoint_id}"
       @config = vpn.get_config(@endpoint_id)
       string = (0...8).map { (65 + rand(26)).chr.downcase }.join
       @config.sub!(@endpoint_id, "#{string}.#{@endpoint_id}")
@@ -35,17 +35,17 @@ module CfnVpn::Actions
 
     def add_routes
       if @options['ignore_routes']
-        logger.debug "Ignoring routes pushed by the client vpn"
+        CfnVpn::Log.logger.debug "Ignoring routes pushed by the client vpn"
         @config.concat("\nroute-nopull\n")
         vpn = CfnVpn::ClientVpn.new(@name,@options['region'])
         routes = vpn.get_route_with_mask
-        logger.debug "Found routes #{routes}"
+        CfnVpn::Log.logger.debug "Found routes #{routes}"
         routes.each do |r|
           @config.concat("route #{r[:route]} #{r[:mask]}\n")
         end
         dns_servers = vpn.get_dns_servers()
         if dns_servers.any?
-          logger.debug "Found DNS servers #{dns_servers.join(' ')}"
+          CfnVpn::Log.logger.debug "Found DNS servers #{dns_servers.join(' ')}"
           @config.concat("dhcp-option DNS #{dns_servers.first}\n")
         end
       end
@@ -58,16 +58,16 @@ module CfnVpn::Actions
 
     def get_certificate_url
       @certificate_url = @s3.get_url("#{@options['client_cn']}.tar.gz")
-      logger.debug "Certificate presigned url: #{@certificate_url}"
+      CfnVpn::Log.logger.debug "Certificate presigned url: #{@certificate_url}"
     end
 
     def get_config_url
       @config_url = @s3.get_url("#{@name}.config.ovpn")
-      logger.debug "Config presigned url: #{@config_url}"
+      CfnVpn::Log.logger.debug "Config presigned url: #{@config_url}"
     end
 
     def display_instructions
-      logger.info "Share the bellow instruction with the user..."
+      CfnVpn::Log.logger.info "Share the bellow instruction with the user..."
       say "\nDownload the certificates and config from the bellow presigned URLs which will expire in 1 hour."
       say "\nCertificate:"
       say "\tcurl #{@certificate_url} > #{@options['client_cn']}.tar.gz", :cyan

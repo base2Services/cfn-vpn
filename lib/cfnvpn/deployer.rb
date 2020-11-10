@@ -6,7 +6,6 @@ require 'cfnvpn/string'
 
 module CfnVpn
   class Deployer
-    include CfnVpn::Log
 
     def initialize(region,name)
       @name = name
@@ -71,18 +70,18 @@ module CfnVpn
         changeset_args[:use_previous_template] = true
       end
 
-      logger.debug "Creating changeset"
+      CfnVpn::Log.logger.debug "Creating changeset"
       change_set = @client.create_change_set(changeset_args)
       return change_set, change_set_type
     end
 
     def wait_for_changeset(change_set_id)
-      logger.debug "Waiting for changeset to be created"
+      CfnVpn::Log.logger.debug "Waiting for changeset to be created"
       begin
         @client.wait_until :change_set_create_complete, change_set_name: change_set_id
       rescue Aws::Waiters::Errors::FailureStateError => e
         change_set = get_change_set(change_set_id)
-        logger.error("change set status: #{change_set.status} reason: #{change_set.status_reason}")
+        CfnVpn::Log.logger.error("change set status: #{change_set.status} reason: #{change_set.status_reason}")
         exit 1
       end
     end
@@ -94,7 +93,7 @@ module CfnVpn
     end
 
     def execute_change_set(change_set_id)
-      logger.debug "Executing the changeset"
+      CfnVpn::Log.logger.debug "Executing the changeset"
       stack = @client.execute_change_set({
         change_set_name: change_set_id
       })
@@ -102,7 +101,7 @@ module CfnVpn
 
     def wait_for_execute(change_set_type)
       waiter = change_set_type == 'CREATE' ? :stack_create_complete : :stack_update_complete
-      logger.info "Waiting for changeset to #{change_set_type}"
+      CfnVpn::Log.logger.info "Waiting for changeset to #{change_set_type}"
       resp = @client.wait_until waiter, stack_name: @stack_name
     end
 

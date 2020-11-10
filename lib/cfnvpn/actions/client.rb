@@ -6,8 +6,7 @@ require 'cfnvpn/globals'
 
 module CfnVpn::Actions
   class Client < Thor::Group
-    include Thor::Actions
-    include CfnVpn::Log
+    include Thor::Actions  
 
     argument :name
 
@@ -24,7 +23,7 @@ module CfnVpn::Actions
     end
 
     def set_loglevel
-      logger.level = Logger::DEBUG if @options['verbose']
+      CfnVpn::Log.logger.level = Logger::DEBUG if @options['verbose']
     end
 
     def set_directory
@@ -36,9 +35,9 @@ module CfnVpn::Actions
     def create_certificate
       s3 = CfnVpn::S3.new(@options['region'],@options['bucket'],@name)
       s3.get_object("#{@cert_dir}/ca.tar.gz")
-      logger.info "Generating new client certificate #{@options['client_cn']} using openvpn easy-rsa"
+      CfnVpn::Log.logger.info "Generating new client certificate #{@options['client_cn']} using openvpn easy-rsa"
       cert = CfnVpn::Certificates.new(@build_dir,@name,@options['easyrsa_local'])
-      logger.debug cert.generate_client(@options['client_cn'])
+      CfnVpn::Log.logger.debug cert.generate_client(@options['client_cn'])
       s3.store_object("#{@cert_dir}/#{@options['client_cn']}.tar.gz")
     end
 

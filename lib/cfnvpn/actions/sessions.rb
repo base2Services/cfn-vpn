@@ -7,7 +7,7 @@ require 'cfnvpn/globals'
 module CfnVpn::Actions
   class Sessions < Thor::Group
     include Thor::Actions
-    include CfnVpn::Log
+    
 
     argument :name
 
@@ -22,7 +22,7 @@ module CfnVpn::Actions
     end
 
     def set_loglevel
-      logger.level = Logger::DEBUG if @options['verbose']
+      CfnVpn::Log.logger.level = Logger::DEBUG if @options['verbose']
     end
 
     def set_directory
@@ -41,11 +41,11 @@ module CfnVpn::Actions
         if session.any? && session.status.code == "active"
           terminate = yes? "Terminate connection #{@options['kill']} for #{session.common_name}?", :yellow
           if terminate
-            logger.info "Terminating connection #{@options['kill']} for #{session.common_name}"
+            CfnVpn::Log.logger.info "Terminating connection #{@options['kill']} for #{session.common_name}"
             @vpn.kill_session(@endpoint_id,@options['kill'])
           end
         else
-          logger.error "Connection id #{@options['kill']} doesn't exist or is not active"
+          CfnVpn::Log.logger.error "Connection id #{@options['kill']} doesn't exist or is not active"
         end
       end
     end
