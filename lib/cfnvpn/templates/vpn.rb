@@ -94,6 +94,38 @@ module CfnVpn
 
           output(:InternetRoute, config[:internet_route])
         end
+
+        config[:routes].each do |route|
+          suffix = "For#{route[:subnet].resource_safe}"
+
+          EC2_ClientVpnRoute(:"#{route[:cidr].resource_safe}VpnRoute") {
+            DependsOn "ClientVpnTargetNetworkAssociation#{suffix}"
+            Description route[:desc]
+            ClientVpnEndpointId Ref(:ClientVpnEndpoint)
+            DestinationCidrBlock route[:cidr]
+            TargetVpcSubnetId route[:subnet]
+          }
+
+          if route[:groups].any?
+            route[:groups].each do |group|
+              EC2_ClientVpnAuthorizationRule(:"#{route[:cidr].resource_safe}AuthorizationRule#{group.resource_safe}") {
+                DependsOn "ClientVpnTargetNetworkAssociation#{suffix}"
+                Description route[:desc]
+                AccessGroupId group
+                ClientVpnEndpointId Ref(:ClientVpnEndpoint)
+                TargetNetworkCidr route[:cidr]
+              }
+            end
+          else
+            EC2_ClientVpnAuthorizationRule(:"#{route[:cidr].resource_safe}AllowAllAuthorizationRule") {
+              DependsOn "ClientVpnTargetNetworkAssociation#{suffix}"
+              Description route[:desc]
+              AuthorizeAllGroups true
+              ClientVpnEndpointId Ref(:ClientVpnEndpoint)
+              TargetNetworkCidr route[:cidr]
+            }
+          end
+        end
         
         SSM_Parameter(:CfnVpnConfig) {
           Description "#{name} cfnvpn config"

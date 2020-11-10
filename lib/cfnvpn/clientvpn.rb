@@ -4,7 +4,7 @@ require 'netaddr'
 
 module CfnVpn
   class ClientVpn
-    include CfnVpn::Log
+    
 
     def initialize(name,region)
       @client = Aws::EC2::Client.new(region: region)
@@ -16,7 +16,7 @@ module CfnVpn
         filters: [{ name: "tag:cfnvpn:name", values: [@name] }]
       })
       if resp.client_vpn_endpoints.empty?
-        logger.error "unable to find endpoint with tag Key: cfnvpn:name with Value: #{@name}"
+        CfnVpn::Log.logger.error "unable to find endpoint with tag Key: cfnvpn:name with Value: #{@name}"
         raise "Unable to find client vpn"
       end
       return resp.client_vpn_endpoints.first
@@ -68,53 +68,6 @@ module CfnVpn
       })
     end
 
-    def get_target_networks(endpoint_id)
-      resp = @client.describe_client_vpn_target_networks({
-        client_vpn_endpoint_id: endpoint_id
-      })
-      return resp.client_vpn_target_networks.first
-    end
-
-    def add_route(cidr,description)
-      endpoint_id = get_endpoint_id()
-      subnet_id = get_target_networks(endpoint_id).target_network_id
-
-      @client.create_client_vpn_route({
-        client_vpn_endpoint_id: endpoint_id,
-        destination_cidr_block: cidr,
-        target_vpc_subnet_id: subnet_id,
-        description: description
-      })
-
-      resp = @client.authorize_client_vpn_ingress({
-        client_vpn_endpoint_id: endpoint_id,
-        target_network_cidr: cidr,
-        authorize_all_groups: true,
-        description: description
-      })
-
-      return resp.status
-    end
-
-    def del_route(cidr)
-      endpoint_id = get_endpoint_id()
-      subnet_id = get_target_networks(endpoint_id).target_network_id
-
-      revoke = @client.revoke_client_vpn_ingress({
-        revoke_all_groups: true,
-        client_vpn_endpoint_id: endpoint_id,
-        target_network_cidr: cidr
-      })
-
-      route = @client.delete_client_vpn_route({
-        client_vpn_endpoint_id: endpoint_id,
-        target_vpc_subnet_id: subnet_id,
-        destination_cidr_block: cidr
-      })
-
-      return route.status, revoke.status
-    end
-
     def get_routes()
       endpoint_id = get_endpoint_id()
       resp = @client.describe_client_vpn_routes({
@@ -124,30 +77,17 @@ module CfnVpn
       return resp.routes
     end
 
-    def route_exists?(cidr)
-      routes = get_routes()
-      resp = routes.select { |route| route if route.destination_cidr == cidr }
-      return resp.any?
-    end
-
-    def get_routes()
-      endpoint_id = get_endpoint_id()
-      resp = @client.describe_client_vpn_routes({
-        client_vpn_endpoint_id: endpoint_id,
-        max_results: 20
+    def get_groups_for_route(endpoint, cidr)
+      auth_resp = @client.describe_client_vpn_authorization_rules({
+        client_vpn_endpoint_id: endpoint,
+        filters: [
+          {
+            name: 'destination-cidr',
+            values: [cidr]
+          }
+        ]
       })
-      return resp.routes
-    end
-
-    def get_route_with_mask()
-      routes = get_routes()
-      routes
-        .select { |r| r if r.destination_cidr != '0.0.0.0/0' }
-        .collect { |r| { route: r.destination_cidr.split('/').first, mask: NetAddr::IPv4Net.parse(r.destination_cidr).netmask.extended }}
-    end
-
-    def valid_cidr?(cidr)
-      return !(cidr =~ /^([0-9]{1,3}\.){3}[0-9]{1,3}(\/([0-9]|[1-2][0-9]|3[0-2]))?$/).nil?
+      return auth_resp.authorization_rules.map {|rule| rule.group_id }
     end
 
     def get_associations(endpoint)
@@ -161,19 +101,8 @@ module CfnVpn
           subnet_ids: [net.target_network_id]
         })
         subnet = subnet_resp.subnets.first
-
-        auth_resp = @client.describe_client_vpn_authorization_rules({
-          client_vpn_endpoint_id: endpoint,
-          filters: [
-            {
-              name: 'destination-cidr',
-              values: [subnet.cidr_block]
-            }
-          ]
-        })
+        groups = get_groups_for_route(endpoint, subnet.cidr_block)
         
-        groups = auth_resp.authorization_rules.map {|rule| rule.group_id }
-
         associations.push({
           association_id: net.association_id,
           target_network_id: net.target_network_id,
