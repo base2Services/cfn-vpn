@@ -33,7 +33,12 @@ module CfnVpn
       change_set_name = "#{@stack_name}-#{CfnVpn::CHANGE_SET_VERSION}-#{Time.now.utc.strftime("%Y%m%d%H%M%S")}"
       change_set_type = get_change_set_type()
 
-      params = get_parameters_from_template(template_body)
+      if !template_body.nil?
+        params = get_parameters_from_template(template_body)
+      else
+        params = get_parameters_from_stack()
+      end
+      
       params.each do |param|
         if !parameters[param[:parameter_key]].nil?
           param[:parameter_value] = parameters[param[:parameter_key]]

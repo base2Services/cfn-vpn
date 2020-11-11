@@ -83,6 +83,7 @@ module CfnVpn
 
           if subnet == config[:internet_route]
             EC2_ClientVpnRoute(:RouteToInternet) {
+              Condition(:EnableSubnetAssociation)
               DependsOn "ClientVpnTargetNetworkAssociation#{suffix}"
               Description 'Route to the internet'
               ClientVpnEndpointId Ref(:ClientVpnEndpoint)
@@ -91,6 +92,7 @@ module CfnVpn
             }
           
             EC2_ClientVpnAuthorizationRule(:RouteToInternetAuthorizationRule) {
+              Condition(:EnableSubnetAssociation)
               DependsOn "ClientVpnTargetNetworkAssociation#{suffix}"
               Description 'Route to the internet'
               AuthorizeAllGroups true
@@ -163,28 +165,6 @@ module CfnVpn
 
       def output(name, value)
         Output(name) { Value value }
-      end
-
-      def federated_vpn()
-        EC2_ClientVpnEndpoint(:ClientVpnEndpoint) {
-          Description FnSub("cfnvpn #{name} AWS Client-VPN")
-          
-          ClientCidrBlock config[:cidr]
-          ConnectionLogOptions({
-            CloudwatchLogGroup: Ref(:ClientVpnLogGroup),
-            Enabled: true
-          })
-          DnsServers config[:dns_servers] if config.fetch(:dns_servers, []).any?
-          TagSpecifications([{
-            ResourceType: "client-vpn-endpoint",
-            Tags: [
-              { Key: 'Name', Value: name },
-              { Key: 'Environment', Value: name }
-            ]
-          }])
-          TransportProtocol config[:protocol]
-          SplitTunnel config[:split_tunnel]
-        }
       end
 
       def scheduler(name, start, stop)
