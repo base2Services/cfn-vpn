@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    cfn-vpn (0.5.1)
+    cfn-vpn (1.0.0)
       aws-sdk-acm (~> 1, < 2)
       aws-sdk-cloudformation (~> 1, < 2)
       aws-sdk-ec2 (~> 1.95, < 2)
