@@ -4,6 +4,22 @@ Management of the VPN routes can be altered using the `routes` command or by usi
 
 ## Routes Command
 
+```
+Options:
+  r, [--region=REGION]              # AWS Region
+                                    # Default: ap-southeast-2
+      [--verbose], [--no-verbose]   # set log level to debug
+      [--cidr=CIDR]                 # cidr range
+      [--subnet=SUBNET]             # the target vpc subnet to route through, if none is supplied the default subnet is used
+      [--desc=DESC]                 # description of the route
+      [--groups=one two three]      # override all authorised groups on thr route
+      [--add-groups=one two three]  # add authorised groups to an existing route
+      [--del-groups=one two three]  # remove authorised groups from an existing route
+      [--delete], [--no-delete]     # delete the route from the client vpn
+
+List, add or delete client vpn routes
+```
+
 ### Add New
 
 to add a new route run the routes command along with the `--cidr` option
