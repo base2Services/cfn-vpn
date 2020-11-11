@@ -2,7 +2,6 @@ require 'thor'
 require 'cfnvpn/version'
 require 'cfnvpn/actions/init'
 require 'cfnvpn/actions/modify'
-require 'cfnvpn/actions/config'
 require 'cfnvpn/actions/client'
 require 'cfnvpn/actions/revoke'
 require 'cfnvpn/actions/sessions'
@@ -26,9 +25,6 @@ module CfnVpn
 
     register CfnVpn::Actions::Modify, 'modify', 'modify [name]', 'Modify your AWS Client VPN'
     tasks["modify"].options = CfnVpn::Actions::Modify.class_options
-
-    register CfnVpn::Actions::Config, 'config', 'config [name]', 'Retrieve the config for the AWS Client VPN'
-    tasks["config"].options = CfnVpn::Actions::Config.class_options
 
     register CfnVpn::Actions::Client, 'client', 'client [name]', 'Create a new client certificate'
     tasks["client"].options = CfnVpn::Actions::Client.class_options
