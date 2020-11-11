@@ -36,9 +36,9 @@ For further information on the authentication types please visit https://docs.aw
 
 ## CfnVpn Documentation
 
-    1. [Getting Started](getting-started.md)
-    2. [Modifying The Client-VPN](modifying.md)
-    3. [Managing Certificate Users](certificate-users.md)
-    4. [Managing Routes](routes.md)
-    5. [Stop and Start Client-VPN](scheduling.md)
-    6. [Managing Sessions](sessions.md)
+1. [Getting Started](getting-started.md)
+2. [Modifying The Client-VPN](modifying.md)
+3. [Managing Certificate Users](certificate-users.md)
+4. [Managing Routes](routes.md)
+5. [Stop and Start Client-VPN](scheduling.md)
+6. [Managing Sessions](sessions.md)
