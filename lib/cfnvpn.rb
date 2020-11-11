@@ -10,6 +10,7 @@ require 'cfnvpn/actions/routes'
 require 'cfnvpn/actions/share'
 require 'cfnvpn/actions/embedded'
 require 'cfnvpn/actions/subnets'
+require 'cfnvpn/actions/params'
 
 module CfnVpn
   class Cli < Thor
@@ -49,6 +50,9 @@ module CfnVpn
 
     register CfnVpn::Actions::Subnets, 'subnets', 'subnets [name]', 'Manage subnet associations for the client vpn'
     tasks["subnets"].options = CfnVpn::Actions::Subnets.class_options
+
+    register CfnVpn::Actions::Params, 'params', 'params [name]', 'Display or dump to yaml the current cfnvpn params'
+    tasks["params"].options = CfnVpn::Actions::Params.class_options
 
   end
 end

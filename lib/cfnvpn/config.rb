@@ -34,5 +34,12 @@ module CfnVpn
       }
     end
 
+    def self.get_config_from_yaml_file(file)
+      YAML.load(File.read(file), symbolize_names: true)
+    end
+
+    def self.dump_config_to_yaml_file(name, params)
+      File.write(File.join(Dir.pwd, "cfnvpn.#{name}.yaml"), Hash[params.collect{|k,v| [k.to_s, v]}].to_yaml)
+    end
   end
 end

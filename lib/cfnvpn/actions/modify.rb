@@ -34,6 +34,8 @@ module CfnVpn::Actions
     class_option :start, type: :string, desc: 'cloudwatch event cron schedule in UTC to associate subnets to the client vpn'
     class_option :stop, type: :string, desc: 'cloudwatch event cron schedule in UTC to disassociate subnets to the client vpn'
 
+    class_option :param_yaml, type: :string, desc: 'pass in cfnvpn params through YAML file'
+
     def self.source_root
       File.dirname(__FILE__)
     end
@@ -61,20 +63,27 @@ module CfnVpn::Actions
 
       CfnVpn::Log.logger.debug "Current config:\n#{@config}"
 
-      @options.each do |key, value|
-        @config[key.to_sym] = value
-      end
+      if @options[:param_yaml]
+        CfnVpn::Log.logger.debug "Loading config from YAML file #{@options[:param_yaml]}"
+        @config = CfnVpn::Config.get_config_from_yaml_file(@options[:param_yaml])
+      else
+        CfnVpn::Log.logger.debug "Loading config from options"
+        @options.each do |key, value|
+          next if [:verbose].include? key
+          @config[key.to_sym] = value
+        end
 
-      if @options['add_subnet_ids']
-        @config[:subnet_ids].concat @options['add_subnet_ids']
-      end
+        if @options['add_subnet_ids']
+          @config[:subnet_ids].concat @options['add_subnet_ids']
+        end
 
-      if @options['del_subnet_ids']
-        @config[:subnet_ids].reject!{ |subnet| @options['del_subnet_ids'].include? subnet }
-      end
+        if @options['del_subnet_ids']
+          @config[:subnet_ids].reject!{ |subnet| @options['del_subnet_ids'].include? subnet }
+        end
 
-      if @options['no_dns_servers']
-        @config[:dns_servers] = []
+        if @options['no_dns_servers']
+          @config[:dns_servers] = []
+        end
       end
 
       CfnVpn::Log.logger.debug "Modified config:\n#{@config}"
