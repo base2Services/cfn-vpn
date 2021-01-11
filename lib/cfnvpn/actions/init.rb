@@ -24,7 +24,7 @@ module CfnVpn::Actions
 
     class_option :subnet_ids, required: true, type: :array, desc: 'subnet id to associate your vpn with'
     class_option :cidr, default: '10.250.0.0/16', desc: 'cidr from which to assign client IP addresses'
-    class_option :dns_servers, type: :array, desc: 'DNS Servers to push to clients.'
+    class_option :dns_servers, default: [], type: :array, desc: 'DNS Servers to push to clients.'
     
     class_option :split_tunnel, type: :boolean, default: true, desc: 'only push routes to the client on the vpn endpoint'
     class_option :internet_route, type: :string, desc: '[subnet-id] create a default route to the internet through a subnet'
@@ -60,19 +60,20 @@ module CfnVpn::Actions
         protocol: @options['protocol'],
         start: @options['start'],
         stop: @options['stop'],
+        saml_arn: @options['saml_arn'],
         routes: []
       }
     end
 
     def set_type
       @config[:type] = @options['saml_arn'] ? 'federated' : 'certificate'
-      Log.logger.info "intialising #{@config[:type]} client vpn"
+      CfnVpn::Log.logger.info "initialising #{@config[:type]} client vpn"
     end
 
     def conditional_options_check
       if @config[:type] == 'certificate'
         if !@options['bucket']
-          Log.logger.error "--bucket option must be specified if creating a client vpn with certificate based authentication"
+          CfnVpn::Log.logger.error "--bucket option must be specified if creating a client vpn with certificate based authentication"
           exit 1
         end
       end
