@@ -11,7 +11,6 @@ module CfnVpn
 
       def render(name, config)
         Description "cfnvpn #{name} AWS Client-VPN"
-
         Parameter(:AssociateSubnets) {
           Type 'String'
           Default 'true'
@@ -32,7 +31,7 @@ module CfnVpn
           if config[:type] == 'federated'
             {
               FederatedAuthentication: {
-                SAMLProviderArn: config[:federated],
+                SAMLProviderArn: config[:saml_arn],
                 SelfServiceSAMLProviderArn: config[:saml_arn]
               },
               Type: 'federated-authentication'
@@ -52,7 +51,7 @@ module CfnVpn
             CloudwatchLogGroup: Ref(:ClientVpnLogGroup),
             Enabled: true
           })
-          DnsServers config.fetch(:dns_servers, []).any? ? config[:dns_servers] : Ref('AWS::NoValue')
+          DnsServers config[:dns_servers].any? ? config[:dns_servers] : Ref('AWS::NoValue')
           TagSpecifications([{
             ResourceType: "client-vpn-endpoint",
             Tags: [
