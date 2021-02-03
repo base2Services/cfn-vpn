@@ -60,6 +60,11 @@ The following command and required option will launch a new federated based Clie
 cfn-vpn init [name] --server-cn [server certificate name] --subnet-ids [list of subets to associate with the vpn] --saml-arn [identity providor arn]
 ```
 
+## Subnet Associations and Authorisation
+
+AWS ClientVPN requires one or more subnets to be associated with the vpn. These subnets setup the default routes and by default cfn-vpn creates a allow all auth for the default routes.
+When using a federated ClientVPN you can modify the default auth to only allow specific groups by setting the groups in the `--default-groups` flag. This can also be modified later using the `modify` command.
+
 ## Additional Initialising Options
 
 ```
@@ -72,6 +77,7 @@ Options:
       [--easyrsa-local], [--no-easyrsa-local]  # run the easyrsa executable from your local rather than from docker
       [--bucket=BUCKET]                        # s3 bucket
       --subnet-ids=one two three               # subnet id to associate your vpn with
+      [--default-groups=one two three]         # groups to allow through the subnet associations when using federated auth
       [--cidr=CIDR]                            # cidr from which to assign client IP addresses
                                                # Default: 10.250.0.0/16
       [--dns-servers=one two three]            # DNS Servers to push to clients.

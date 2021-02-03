@@ -23,6 +23,8 @@ module CfnVpn::Actions
     class_option :add_subnet_ids, type: :array, desc: 'add to existing subnet associations'
     class_option :del_subnet_ids, type: :array, desc: 'delete subnet associations'
 
+    class_option :default_groups, type: :array, desc: 'groups to allow through the subnet associations when using federated auth'
+
     class_option :dns_servers, type: :array, desc: 'DNS Servers to push to clients.'
     class_option :no_dns_servers, type: :boolean, desc: 'Remove the DNS Servers from the client vpn'
 
@@ -84,6 +86,10 @@ module CfnVpn::Actions
         if @options['no_dns_servers']
           @config[:dns_servers] = []
         end
+      end
+
+      if @config[:saml_arn] && @options[:default_groups]
+        @config[:default_groups] = @options[:default_groups]
       end
 
       CfnVpn::Log.logger.debug "Modified config:\n#{@config}"

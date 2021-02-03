@@ -2,6 +2,8 @@
 
 Management of the VPN routes can be altered using the `routes` command or by using the `modify` command along with the yaml config file.
 
+**Note:** The default route via subnet association cannot be modified through this command. Use the `modify` command to alter the subnet associations.
+
 ## Routes Command
 
 ```

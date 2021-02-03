@@ -71,14 +71,27 @@ module CfnVpn
             SubnetId subnet
           }
 
-          EC2_ClientVpnAuthorizationRule(:"TargetNetworkAuthorizationRule#{suffix}") {
-            Condition(:EnableSubnetAssociation)
-            DependsOn "ClientVpnTargetNetworkAssociation#{suffix}"
-            Description FnSub("#{name} client-vpn auth rule for subnet association")
-            AuthorizeAllGroups true
-            ClientVpnEndpointId Ref(:ClientVpnEndpoint)
-            TargetNetworkCidr CfnVpn::Templates::Helper.get_auth_cidr(config[:region], subnet)
-          }
+          if config[:default_groups].any?
+            config[:default_groups].each do |group|
+              EC2_ClientVpnAuthorizationRule(:"TargetNetworkAuthorizationRule#{suffix}#{group.resource_safe}"[0..255]) {
+                Condition(:EnableSubnetAssociation)
+                DependsOn "ClientVpnTargetNetworkAssociation#{suffix}"
+                Description FnSub("#{name} client-vpn auth rule for subnet association")
+                AccessGroupId group
+                ClientVpnEndpointId Ref(:ClientVpnEndpoint)
+                TargetNetworkCidr CfnVpn::Templates::Helper.get_auth_cidr(config[:region], subnet)
+              }
+            end
+          else
+            EC2_ClientVpnAuthorizationRule(:"TargetNetworkAuthorizationRule#{suffix}") {
+              Condition(:EnableSubnetAssociation)
+              DependsOn "ClientVpnTargetNetworkAssociation#{suffix}"
+              Description FnSub("#{name} client-vpn auth rule for subnet association")
+              AuthorizeAllGroups true
+              ClientVpnEndpointId Ref(:ClientVpnEndpoint)
+              TargetNetworkCidr CfnVpn::Templates::Helper.get_auth_cidr(config[:region], subnet)
+            }
+          end
 
           if subnet == config[:internet_route]
             EC2_ClientVpnRoute(:RouteToInternet) {
@@ -112,7 +125,7 @@ module CfnVpn
           }
           if route[:groups].any?
             route[:groups].each do |group|
-              EC2_ClientVpnAuthorizationRule(:"#{route[:cidr].resource_safe}AuthorizationRule#{group.resource_safe}") {
+              EC2_ClientVpnAuthorizationRule(:"#{route[:cidr].resource_safe}AuthorizationRule#{group.resource_safe}"[0..255]) {
                 Description route[:desc]
                 AccessGroupId group
                 ClientVpnEndpointId Ref(:ClientVpnEndpoint)

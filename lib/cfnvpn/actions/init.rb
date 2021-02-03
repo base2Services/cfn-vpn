@@ -23,6 +23,7 @@ module CfnVpn::Actions
     class_option :bucket, desc: 's3 bucket'
 
     class_option :subnet_ids, required: true, type: :array, desc: 'subnet id to associate your vpn with'
+    class_option :default_groups, type: :array, desc: 'groups to allow through the subnet associations when using federated auth'
     class_option :cidr, default: '10.250.0.0/16', desc: 'cidr from which to assign client IP addresses'
     class_option :dns_servers, default: [], type: :array, desc: 'DNS Servers to push to clients.'
     
@@ -67,6 +68,7 @@ module CfnVpn::Actions
 
     def set_type
       @config[:type] = @options['saml_arn'] ? 'federated' : 'certificate'
+      @config[:default_groups] = @options['saml_arn'] ? @options['default_groups'] : []
       CfnVpn::Log.logger.info "initialising #{@config[:type]} client vpn"
     end
 
