@@ -60,6 +60,12 @@ The following command and required option will launch a new federated based Clie
 cfn-vpn init [name] --server-cn [server certificate name] --subnet-ids [list of subets to associate with the vpn] --saml-arn [identity providor arn]
 ```
 
+The default authorization rule for the associated subets allows all. You can optionally change this by using the `--default-groups` flag to set groups on the default authorization rule. 
+
+```sh
+cfn-vpn init [name] --server-cn [server certificate name] --subnet-ids [list of subets to associate with the vpn] --saml-arn [identity providor arn] --default-groups [list of group ids]
+```
+
 ## Subnet Associations and Authorisation
 
 AWS ClientVPN requires one or more subnets to be associated with the vpn. These subnets setup the default routes and by default cfn-vpn creates a allow all auth for the default routes.
