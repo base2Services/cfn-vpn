@@ -36,6 +36,13 @@ module CfnVpn
               },
               Type: 'federated-authentication'
             }
+          elsif config[:type] == 'active-directory'
+            {
+              ActiveDirectory: {
+                DirectoryId: config[:directory_id]
+              },
+              Type: 'directory-service-authentication'
+            }
           else
             {
               MutualAuthentication: {
@@ -170,6 +177,8 @@ module CfnVpn
 
         if config[:type] == 'federated'
           output(:SamlArn, config[:saml_arn])
+        elsif config[:type] == 'active-directory'
+          output(:DirectoryId, config[:directory_id])
         else
           output(:ClientCertArn, config[:client_cert_arn])
         end

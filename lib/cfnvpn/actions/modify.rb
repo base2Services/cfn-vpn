@@ -88,7 +88,7 @@ module CfnVpn::Actions
         end
       end
 
-      if @config[:saml_arn] && @options[:default_groups]
+      if (@config[:saml_arn] || @config[:directory_id]) && @options[:default_groups]
         @config[:default_groups] = @options[:default_groups]
       end
 

@@ -35,6 +35,7 @@ module CfnVpn::Actions
     class_option :stop, type: :string, desc: 'cloudwatch event cron schedule in UTC to disassociate subnets to the client vpn'
 
     class_option :saml_arn, desc: 'IAM SAML idenditiy providor arn if using SAML federated authentication'
+    class_option :directory_id, desc: 'AWS Directory Service directory id if using Active Directory authentication'
 
     def self.source_root
       File.dirname(__FILE__)
@@ -62,13 +63,22 @@ module CfnVpn::Actions
         start: @options['start'],
         stop: @options['stop'],
         saml_arn: @options['saml_arn'],
+        directory_id: @options['directory_id'],
         routes: []
       }
     end
 
     def set_type
-      @config[:type] = @options['saml_arn'] ? 'federated' : 'certificate'
-      @config[:default_groups] = @options['saml_arn'] ? @options['default_groups'] : []
+      if @options['saml_arn']
+        @config[:type] = 'federated'
+        @config[:default_groups] = @options['default_groups']
+      elsif @options['directory_id']
+        @config[:type] = 'active-directory'
+        @config[:default_groups] = @options['default_groups']
+      else
+        @config[:type] = 'certificate'
+        @config[:default_groups] = []
+      end
       CfnVpn::Log.logger.info "initialising #{@config[:type]} client vpn"
     end
 
