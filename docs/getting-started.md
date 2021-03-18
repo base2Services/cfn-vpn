@@ -38,19 +38,25 @@ Optionally export the AWS region if not providing `--region` flag
 export AWS_REGION="us-east-1"
 ```
 
-## Initialising CfnVpn
+
+## Initializing CfnVpn
 
 to launch a new CfnVpn stack run the `init` command along with the options.
 
 ### Certificate Authenticated VPN
 
-The following command and required option will launch a new certificate based Client-VPN
+This is the default option when launching a ClientVPN using certificated based authentication. https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/client-authentication.html#mutual
+
+The following command and required options will launch a new certificate based Client-VPN
 
 ```sh
 cfn-vpn init [name] --bucket [s3-bucket] --server-cn [server certificate name] --subnet-ids [list of subets to associate with the vpn]
 ```
 
+
 ### Federated SAML Authenticated VPN
+
+This option is for when you want to manage users through an external directory provider like AWS SSO, OKTA or AzureAD. https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/client-authentication.html#federated-authentication
 
 **Prerequisites:** Client-VPN requires a IAM SAML identity provider ARN, see the [AWS docs](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_saml.html) to create one.
 
@@ -60,18 +66,41 @@ The following command and required option will launch a new federated based Clie
 cfn-vpn init [name] --server-cn [server certificate name] --subnet-ids [list of subets to associate with the vpn] --saml-arn [identity providor arn]
 ```
 
-The default authorization rule for the associated subets allows all. You can optionally change this by using the `--default-groups` flag to set groups on the default authorization rule. 
+The default authorization rule for the associated subnets allows all. You can optionally change this by using the `--default-groups` flag to set groups on the default authorization rule. 
 
 ```sh
 cfn-vpn init [name] --server-cn [server certificate name] --subnet-ids [list of subets to associate with the vpn] --saml-arn [identity providor arn] --default-groups [list of group ids]
 ```
 
-## Subnet Associations and Authorisation
+**AWS SSO**
+
+If using AWS SSO as your SAML provider check this guide on how to set up SAML using AWS SSO https://codeburst.io/the-aws-client-vpn-federated-authentication-missing-example-655e0a1ff7f4
+
+
+### AWS Directory Services Authenticated VPN
+
+This option integrates Microsoft Active Directory or Simple AD through AWS Directory Service with AWS Client VPN.
+
+The following command and required option will launch a new directory service based Client-VPN
+
+```sh
+cfn-vpn init simple-ad --server-cn [server certificate name] --subnet-ids [list of subets to associate with the vpn] --directory-id [aws directirory serivce id]
+```
+
+The default authorization rule for the associated subnets allows all. You can optionally change this by using the `--default-groups` flag to set groups on the default authorization rule. The group Id is the Active Directory Group ID or SID.
+
+```sh
+cfn-vpn init simple-ad --server-cn [server certificate name] --subnet-ids [list of subets to associate with the vpn] --directory-id [aws directirory serivce id] --default-groups [list of group ids]
+```
+
+See this guide for further help on setting up https://shogokobayashi.com/2019/05/18/aws-client-vpn-with-simplead/
+
+## Subnet Associations and Authorization
 
 AWS ClientVPN requires one or more subnets to be associated with the vpn. These subnets setup the default routes and by default cfn-vpn creates a allow all auth for the default routes.
 When using a federated ClientVPN you can modify the default auth to only allow specific groups by setting the groups in the `--default-groups` flag. This can also be modified later using the `modify` command.
 
-## Additional Initialising Options
+## Additional Initializing Options
 
 ```
 Options:
