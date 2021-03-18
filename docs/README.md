@@ -31,7 +31,7 @@ dig @10.0.0.2 google.com
 
 ## Authentication Types
 
-`cfn-vpn` supports certificate and federated type authentication for AWS Client-VPN. It currently doesn't support Active Directory type authentication.
+`cfn-vpn` supports certificate, federated and active directory type authentication for AWS Client-VPN.
 For further information on the authentication types please visit https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/client-authentication.html
 
 ## CfnVpn Documentation
