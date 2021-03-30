@@ -69,6 +69,7 @@ module CfnVpn
           SplitTunnel config[:split_tunnel]
         }
 
+        network_assoc_dependson = []
         config[:subnet_ids].each_with_index do |subnet, index|
           suffix = index == 0 ? "" : "For#{subnet.resource_safe}"
 
@@ -78,49 +79,51 @@ module CfnVpn
             SubnetId subnet
           }
 
-          if config[:default_groups].any?
-            config[:default_groups].each do |group|
-              EC2_ClientVpnAuthorizationRule(:"TargetNetworkAuthorizationRule#{suffix}#{group.resource_safe}"[0..255]) {
-                Condition(:EnableSubnetAssociation)
-                DependsOn "ClientVpnTargetNetworkAssociation#{suffix}"
-                Description FnSub("#{name} client-vpn auth rule for subnet association")
-                AccessGroupId group
-                ClientVpnEndpointId Ref(:ClientVpnEndpoint)
-                TargetNetworkCidr CfnVpn::Templates::Helper.get_auth_cidr(config[:region], subnet)
-              }
-            end
-          else
-            EC2_ClientVpnAuthorizationRule(:"TargetNetworkAuthorizationRule#{suffix}") {
-              Condition(:EnableSubnetAssociation)
-              DependsOn "ClientVpnTargetNetworkAssociation#{suffix}"
-              Description FnSub("#{name} client-vpn auth rule for subnet association")
-              AuthorizeAllGroups true
-              ClientVpnEndpointId Ref(:ClientVpnEndpoint)
-              TargetNetworkCidr CfnVpn::Templates::Helper.get_auth_cidr(config[:region], subnet)
-            }
-          end
+          network_assoc_dependson << "ClientVpnTargetNetworkAssociation#{suffix}"
+        end
 
-          if subnet == config[:internet_route]
-            EC2_ClientVpnRoute(:RouteToInternet) {
+        if config[:default_groups].any?
+          config[:default_groups].each do |group|
+            EC2_ClientVpnAuthorizationRule(:"TargetNetworkAuthorizationRule#{group.resource_safe}"[0..255]) {
               Condition(:EnableSubnetAssociation)
-              DependsOn "ClientVpnTargetNetworkAssociation#{suffix}"
-              Description 'Route to the internet'
+              DependsOn network_assoc_dependson if network_assoc_dependson.any?
+              Description FnSub("#{name} client-vpn auth rule for subnet association")
+              AccessGroupId group
               ClientVpnEndpointId Ref(:ClientVpnEndpoint)
-              DestinationCidrBlock '0.0.0.0/0'
-              TargetVpcSubnetId config[:internet_route]
+              TargetNetworkCidr CfnVpn::Templates::Helper.get_auth_cidr(config[:region], config[:subnet_ids].first)
             }
-          
-            EC2_ClientVpnAuthorizationRule(:RouteToInternetAuthorizationRule) {
-              Condition(:EnableSubnetAssociation)
-              DependsOn "ClientVpnTargetNetworkAssociation#{suffix}"
-              Description 'Route to the internet'
-              AuthorizeAllGroups true
-              ClientVpnEndpointId Ref(:ClientVpnEndpoint)
-              TargetNetworkCidr '0.0.0.0/0'
-            }
-  
-            output(:InternetRoute, config[:internet_route])
           end
+        else
+          EC2_ClientVpnAuthorizationRule(:"TargetNetworkAuthorizationRule") {
+            Condition(:EnableSubnetAssociation)
+            DependsOn network_assoc_dependson if network_assoc_dependson.any?
+            Description FnSub("#{name} client-vpn auth rule for subnet association")
+            AuthorizeAllGroups true
+            ClientVpnEndpointId Ref(:ClientVpnEndpoint)
+            TargetNetworkCidr CfnVpn::Templates::Helper.get_auth_cidr(config[:region], config[:subnet_ids].first)
+          }
+        end
+
+        if !config[:internet_route].nil?
+          EC2_ClientVpnRoute(:RouteToInternet) {
+            Condition(:EnableSubnetAssociation)
+            DependsOn network_assoc_dependson if network_assoc_dependson.any?
+            Description "Route to the internet through subnet #{config[:internet_route]}"
+            ClientVpnEndpointId Ref(:ClientVpnEndpoint)
+            DestinationCidrBlock '0.0.0.0/0'
+            TargetVpcSubnetId config[:internet_route]
+          }
+        
+          EC2_ClientVpnAuthorizationRule(:RouteToInternetAuthorizationRule) {
+            Condition(:EnableSubnetAssociation)
+            DependsOn network_assoc_dependson if network_assoc_dependson.any?
+            Description "Internet route authorization from subnet #{config[:internet_route]}"
+            AuthorizeAllGroups true
+            ClientVpnEndpointId Ref(:ClientVpnEndpoint)
+            TargetNetworkCidr '0.0.0.0/0'
+          }
+
+          output(:InternetRoute, config[:internet_route])
         end
 
         config[:routes].each do |route|
