@@ -9,6 +9,7 @@ module CfnVpn
     def initialize(name,region)
       @client = Aws::EC2::Client.new(region: region)
       @name = name
+      @endpoint_id = self.get_endpoint_id()
     end
 
     def get_endpoint()
@@ -114,6 +115,23 @@ module CfnVpn
       end
 
       return associations
+    end
+
+    def delete_route(cidr, subnet)
+      @client.delete_client_vpn_route({
+        client_vpn_endpoint_id: @endpoint_id,
+        target_vpc_subnet_id: subnet,
+        destination_cidr_block: cidr
+      })
+    end
+
+    def revoke_auth(cidr)
+      endpoint_id = get_endpoint_id()
+      @client.revoke_client_vpn_ingress({
+        client_vpn_endpoint_id: @endpoint_id,
+        target_network_cidr: cidr,
+        revoke_all_groups: true
+      })
     end
 
   end

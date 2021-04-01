@@ -13,6 +13,7 @@ module CfnVpn::Actions
     class_option :verbose, desc: 'set log level to debug', type: :boolean
 
     class_option :cidr, desc: 'cidr range'
+    class_option :dns, desc: 'dns record to auto lookup ip'
     class_option :subnet, desc: 'the target vpc subnet to route through, if none is supplied the default subnet is used'
     class_option :desc, desc: 'description of the route'
 
@@ -32,26 +33,50 @@ module CfnVpn::Actions
 
     def set_config
       @config = CfnVpn::Config.get_config(@options[:region], @name)
-      @route = @config[:routes].detect {|route| route[:cidr] == @options[:cidr]}      
+
+      if @options[:cidr] && @options[:dns]
+        CfnVpn::Log.logger.error "only one of --dns or --cidr can be set"
+        exit 1
+      end
+
+      if @options[:dns]
+        if @options[:dns].include?("*")
+          CfnVpn::Log.logger.error("wild card DNS resolution is not supported, use a record that will be resolved by the wild card instead")
+          exit 1
+        end
+        @route = @config[:routes].detect {|route| route[:dns] == @options[:dns]}      
+      elsif @options[:cidr]
+        @route = @config[:routes].detect {|route| route[:cidr] == @options[:cidr]}      
+      end
     end
 
     def set_route
       @skip_update = false
+      @dns_route_cleanup = nil
       if @route && @options[:delete]
-        CfnVpn::Log.logger.info "deleting route #{@options[:cidr]} "
-        @config[:routes].reject! {|route| route[:cidr] == @options[:cidr]}
+        if @options[:dns]
+          CfnVpn::Log.logger.info "deleting auto lookup route for endpoint #{@options[:dns]}"
+          @config[:routes].reject! {|route| route[:dns] == @options[:dns]}
+          @dns_route_cleanup = @options[:dns]
+        elsif @options[:cidr]
+          CfnVpn::Log.logger.info "deleting route #{@options[:cidr]}"
+          @config[:routes].reject! {|route| route[:cidr] == @options[:cidr]}
+        end
       elsif @route
-        CfnVpn::Log.logger.info "modifying groups for existing route #{@options[:cidr]}"
+        CfnVpn::Log.logger.info "existing route for #{@options[:cidr] ? @options[:cidr] : @options[:dns]} found"
         if @options[:groups]
+          CfnVpn::Log.logger.info "replacing groups #{@route[:groups]} with new #{@options[:groups]} for route authorization rule"
           @route[:groups] = @options[:groups]
         end
 
         if @options[:add_groups]
+          CfnVpn::Log.logger.info "adding new group(s) #{@options[:add_groups]} to route authorization rule" 
           @route[:groups].concat(@options[:add_groups]).uniq!
         end
 
         if @options[:del_groups]
-          @route[:groups].reject! {|group| @options[:add_groups].include? group}
+          CfnVpn::Log.logger.info "removing new group(s) #{@options[:del_groups]} to route authorization rule" 
+          @route[:groups].reject! {|group| @options[:del_groups].include? group}
         end
 
         if @options[:desc]
@@ -65,7 +90,15 @@ module CfnVpn::Actions
         CfnVpn::Log.logger.info "adding new route for #{@options[:cidr]}"
         @config[:routes] << {
           cidr: @options[:cidr],
-          desc: @options.fetch(:desc, "route for cidr #{@options[:cidr]}"),
+          desc: @options.fetch(:desc, ""),
+          subnet: @options.fetch(:subnet, @config[:subnet_ids].first),
+          groups: @options.fetch(@options[:groups], []) + @options.fetch(@options[:add_groups], [])
+        }
+      elsif !@route && @options[:dns]
+        CfnVpn::Log.logger.info "adding new route lookup for dns record #{@options[:dns]}"
+        @config[:routes] << {
+          dns: @options[:dns],
+          desc: @options.fetch(:desc, ""),
           subnet: @options.fetch(:subnet, @config[:subnet_ids].first),
           groups: @options.fetch(@options[:groups], []) + @options.fetch(@options[:add_groups], [])
         }
@@ -74,6 +107,13 @@ module CfnVpn::Actions
       end
 
       CfnVpn::Log.logger.debug "CONFIG: #{@config}"
+    end
+
+    def create_bucket_if_bucket_not_set
+      if !@config.has_key?(:bucket)
+        CfnVpn::Log.logger.error "no bucket found in the config, run the cfn-vpn modify #{name} command to add a bucket"
+        exit 1
+      end
     end
 
     def deploy_vpn
@@ -123,8 +163,20 @@ module CfnVpn::Actions
       end
     end
 
-    def get_routes
+    def cleanup_dns_routes
       @vpn = CfnVpn::ClientVpn.new(@name,@options['region'])
+      unless @dns_route_cleanup.nil?
+        routes = @vpn.get_routes()
+        CfnVpn::Log.logger.info("Cleaning up expired routes for #{@dns_route_cleanup}")
+        expired_routes = routes.select {|route| route.description.include?(@dns_route_cleanup) }
+        expired_routes.each do |route|
+          @vpn.delete_route(route.destination_cidr, route.target_subnet)
+          @vpn.revoke_auth(route.destination_cidr)
+        end
+      end
+    end
+
+    def get_routes
       @endpoint = @vpn.get_endpoint_id()
       @routes = @vpn.get_routes()
     end

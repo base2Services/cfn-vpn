@@ -8,6 +8,7 @@ require 'cfnvpn/log'
 require 'cfnvpn/clientvpn'
 require 'cfnvpn/globals'
 require 'cfnvpn/config'
+require 'cfnvpn/s3_bucket'
 
 module CfnVpn::Actions
   class Modify < Thor::Group
@@ -37,6 +38,8 @@ module CfnVpn::Actions
     class_option :stop, type: :string, desc: 'cloudwatch event cron schedule in UTC to disassociate subnets to the client vpn'
 
     class_option :param_yaml, type: :string, desc: 'pass in cfnvpn params through YAML file'
+
+    class_option :bucket, desc: 's3 bucket'
 
     def self.source_root
       File.dirname(__FILE__)
@@ -93,6 +96,23 @@ module CfnVpn::Actions
       end
 
       CfnVpn::Log.logger.debug "Modified config:\n#{@config}"
+    end
+
+    def create_bucket_if_bucket_not_set
+      if !@options['bucket'] && !@config.has_key?(:bucket)
+        if yes? "no s3 bucket supplied in the command or found in the config, select (Y) to generate a new one ot select (N) and re run teh command with the --bucket flag to import the existing bucket." 
+          CfnVpn::Log.logger.info "creating s3 bucket"
+          bucket = CfnVpn::S3Bucket.new(@options['region'], @name)
+          bucket_name = bucket.generate_bucket_name
+          bucket.create_bucket(bucket_name)
+          @config[:bucket] = bucket_name
+        else
+          CfnVpn::Log.logger.info "rerun cfn-vpn modify #{name} command with the --bucket [BUCKET] flag"
+          exit 1
+        end
+      elsif @options['bucket']
+        @config[:bucket] = @options['bucket']
+      end
     end
 
     def deploy_vpn

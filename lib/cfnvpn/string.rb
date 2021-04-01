@@ -11,6 +11,10 @@ class String
     self.gsub(/[^a-zA-Z0-9]/, "").capitalize
   end
 
+  def event_id_safe
+    self.gsub('*', 'wildcard').gsub(/[^\.\-_A-Za-z0-9]+/, "").downcase
+  end
+
   def colorize(color_code)
     "\e[#{color_code}m#{self}\e[0m"
   end

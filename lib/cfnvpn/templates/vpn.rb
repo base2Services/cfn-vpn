@@ -1,5 +1,6 @@
 require 'cfndsl'
 require 'cfnvpn/templates/helper'
+require 'cfnvpn/templates/lambdas'
 
 module CfnVpn
   module Templates
@@ -126,29 +127,65 @@ module CfnVpn
           output(:InternetRoute, config[:internet_route])
         end
 
-        config[:routes].each do |route|
-          EC2_ClientVpnRoute(:"#{route[:cidr].resource_safe}VpnRoute") {
-            Description route[:desc]
-            ClientVpnEndpointId Ref(:ClientVpnEndpoint)
-            DestinationCidrBlock route[:cidr]
-            TargetVpcSubnetId route[:subnet]
-          }
-          if route[:groups].any?
-            route[:groups].each do |group|
-              EC2_ClientVpnAuthorizationRule(:"#{route[:cidr].resource_safe}AuthorizationRule#{group.resource_safe}"[0..255]) {
-                Description route[:desc]
-                AccessGroupId group
+        dns_routes = config[:routes].select {|route| route.has_key?(:dns)}
+        cidr_routes = config[:routes].select {|route| route.has_key?(:cidr)}
+
+        if dns_routes.any?
+          auto_route_populator(name, config[:bucket])
+
+          dns_routes.each do |route|
+            input = { 
+              Record: route[:dns],
+              ClientVpnEndpointId: "${ClientVpnEndpoint}",
+              TargetSubnet: route[:subnet],
+              Description: route[:desc]
+            }
+            
+            if route[:groups].any?
+              input[:Groups] = route[:groups]
+            end
+
+            Events_Rule(:"CfnVpnAutoRoutePopulatorEvent#{route[:dns].resource_safe}"[0..255]) {
+              State 'ENABLED'
+              Description "cfnvpn auto route populator schedule for #{route[:dns]}"
+              ScheduleExpression "rate(5 minutes)"
+              Targets([
+                { 
+                  Arn: FnGetAtt(:CfnVpnAutoRoutePopulator, :Arn),
+                  Id: "cfnvpnautoroutepopulator#{route[:dns].event_id_safe}",
+                  Input: FnSub(input.to_json)
+                }
+              ])
+            }
+          end
+        end
+
+        if cidr_routes.any?
+          cidr_routes.each do |route|
+            EC2_ClientVpnRoute(:"#{route[:cidr].resource_safe}VpnRoute") {
+              Description "cfnvpn static route for #{route[:cidr]}. #{route[:desc]}"
+              ClientVpnEndpointId Ref(:ClientVpnEndpoint)
+              DestinationCidrBlock route[:cidr]
+              TargetVpcSubnetId route[:subnet]
+            }
+
+            if route[:groups].any?
+              route[:groups].each do |group|
+                EC2_ClientVpnAuthorizationRule(:"#{route[:cidr].resource_safe}AuthorizationRule#{group.resource_safe}"[0..255]) {
+                  Description "cfnvpn static authorization rule for group #{group} to route #{route[:cidr]}. #{route[:desc]}"
+                  AccessGroupId group
+                  ClientVpnEndpointId Ref(:ClientVpnEndpoint)
+                  TargetNetworkCidr route[:cidr]
+                }
+              end
+            else
+              EC2_ClientVpnAuthorizationRule(:"#{route[:cidr].resource_safe}AllowAllAuthorizationRule") {
+                Description "cfnvpn static allow all authorization rule to route #{route[:cidr]}. #{route[:desc]}"
+                AuthorizeAllGroups true
                 ClientVpnEndpointId Ref(:ClientVpnEndpoint)
                 TargetNetworkCidr route[:cidr]
               }
             end
-          else
-            EC2_ClientVpnAuthorizationRule(:"#{route[:cidr].resource_safe}AllowAllAuthorizationRule") {
-              Description route[:desc]
-              AuthorizeAllGroups true
-              ClientVpnEndpointId Ref(:ClientVpnEndpoint)
-              TargetNetworkCidr route[:cidr]
-            }
           end
         end
         
@@ -159,13 +196,13 @@ module CfnVpn
           Type 'String'
           Value config.to_json
           Tags({
-            Name:  "#{name}-cfnvpn-config",
+            Name: "#{name}-cfnvpn-config",
             Environment: 'cfnvpn'
           })
         }
 
         if config[:start] || config[:stop]
-          scheduler(name, config[:start], config[:stop])
+          scheduler(name, config[:start], config[:stop], config[:bucket])
           output(:Start, config[:start]) if config[:start]
           output(:Stop, config[:stop]) if config[:stop]
         end
@@ -191,7 +228,92 @@ module CfnVpn
         Output(name) { Value value }
       end
 
-      def scheduler(name, start, stop)
+      def auto_route_populator(name, bucket)
+        IAM_Role(:CfnVpnAutoRoutePopulatorRole) {
+          AssumeRolePolicyDocument({
+            Version: '2012-10-17',
+            Statement: [{
+              Effect: 'Allow',
+              Principal: { Service: [ 'lambda.amazonaws.com' ] },
+              Action: [ 'sts:AssumeRole' ]
+            }]
+          })
+          Path '/cfnvpn/'
+          Policies([
+            {
+              PolicyName: 'client-vpn',
+              PolicyDocument: {
+                Version: '2012-10-17',
+                Statement: [{
+                  Effect: 'Allow',
+                  Action: [ 
+                    'ec2:AuthorizeClientVpnIngress',
+                    'ec2:RevokeClientVpnIngress',
+                    'ec2:DescribeClientVpnAuthorizationRules',
+                    'ec2:DescribeClientVpnEndpoints',
+                    'ec2:DescribeClientVpnRoutes',
+                    'ec2:CreateClientVpnRoute',
+                    'ec2:DeleteClientVpnRoute'
+                  ],
+                  Resource: '*'
+                }]
+              }
+            },
+            {
+              PolicyName: 'logging',
+              PolicyDocument: {
+                Version: '2012-10-17',
+                Statement: [{
+                  Effect: 'Allow',
+                  Action: [
+                    'logs:DescribeLogGroups',
+                    'logs:CreateLogGroup',
+                    'logs:CreateLogStream',
+                    'logs:DescribeLogStreams',
+                    'logs:PutLogEvents'
+                  ],
+                  Resource: '*'
+                }]
+              }
+            }
+          ])
+          Tags([
+            { Key: 'Name', Value: "#{name}-cfnvpn-auto-route-populator-role" },
+            { Key: 'Environment', Value: 'cfnvpn' }
+          ])
+        }
+
+        s3_key = CfnVpn::Templates::Lambdas.package_lambda(name: name, bucket: bucket, func: 'auto_route_populator', files: ['app.py'])
+        
+        Lambda_Function(:CfnVpnAutoRoutePopulator) {
+          Runtime 'python3.8'
+          Role FnGetAtt(:CfnVpnAutoRoutePopulatorRole, :Arn)
+          MemorySize '128'
+          Handler 'app.handler'
+          Timeout 60
+          Code({
+            S3Bucket: bucket,
+            S3Key: s3_key
+          })
+          Tags([
+            { Key: 'Name', Value: "#{name}-cfnvpn-auto-route-populator" },
+            { Key: 'Environment', Value: 'cfnvpn' }
+          ])
+        }
+
+        Logs_LogGroup(:CfnVpnAutoRoutePopulatorLogGroup) {
+          LogGroupName FnSub("/aws/lambda/${CfnVpnAutoRoutePopulator}")
+          RetentionInDays 30
+        }
+
+        Lambda_Permission(:CfnVpnAutoRoutePopulatorFunctionPermissions) {
+          FunctionName Ref(:CfnVpnAutoRoutePopulator)
+          Action 'lambda:InvokeFunction'
+          Principal 'events.amazonaws.com'
+        }
+      end
+
+      def scheduler(name, start, stop, bucket)
         IAM_Role(:ClientVpnSchedulerRole) {
           AssumeRolePolicyDocument({
             Version: '2012-10-17',
@@ -261,46 +383,17 @@ module CfnVpn
           ])
         }
 
+        s3_key = CfnVpn::Templates::Lambdas.package_lambda(name: name, bucket: bucket, func: 'scheduler', files: ['app.py'])
+
         Lambda_Function(:ClientVpnSchedulerFunction) {
-          Runtime 'python3.7'
+          Runtime 'python3.8'
           Role FnGetAtt(:ClientVpnSchedulerRole, :Arn)
           MemorySize '128'
-          Handler 'index.handler'
+          Handler 'app.handler'
+          Timeout 60
           Code({
-            ZipFile: <<~EOS
-            import boto3
-
-            def handler(event, context):
-
-              print(f"updating cfn-vpn stack {event['StackName']} parameter AssociateSubnets with value {event['AssociateSubnets']}")
-
-              if event['AssociateSubnets'] == 'false':
-                print(f"terminating current vpn sessions to {event['ClientVpnEndpointId']}")
-                ec2 = boto3.client('ec2')
-                resp = ec2.describe_client_vpn_connections(ClientVpnEndpointId=event['ClientVpnEndpointId'])
-                for conn in resp['Connections']:
-                  if conn['Status']['Code'] == 'active':
-                    ec2.terminate_client_vpn_connections(
-                      ClientVpnEndpointId=event['ClientVpnEndpointId'],
-                      ConnectionId=conn['ConnectionId']
-                    )
-                    print(f"terminated session {conn['ConnectionId']}")
-
-              client = boto3.client('cloudformation')
-              print(client.update_stack(
-                StackName=event['StackName'],
-                UsePreviousTemplate=True,
-                Capabilities=['CAPABILITY_IAM'],
-                Parameters=[
-                  {
-                    'ParameterKey': 'AssociateSubnets',
-                    'ParameterValue': event['AssociateSubnets']
-                  }
-                ]
-              ))
-
-              return 'OK'
-            EOS
+            S3Bucket: bucket,
+            S3Key: s3_key
           })
           Tags([
             { Key: 'Name', Value: "#{name}-cfnvpn-scheduler-function" },

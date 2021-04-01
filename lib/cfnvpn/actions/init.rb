@@ -6,6 +6,7 @@ require 'cfnvpn/compiler'
 require 'cfnvpn/log'
 require 'cfnvpn/clientvpn'
 require 'cfnvpn/globals'
+require 'cfnvpn/s3_bucket'
 
 module CfnVpn::Actions
   class Init < Thor::Group
@@ -20,7 +21,7 @@ module CfnVpn::Actions
     class_option :server_cn, required: true, desc: 'server certificate common name'
     class_option :client_cn, desc: 'client certificate common name'
     class_option :easyrsa_local, type: :boolean, default: false, desc: 'run the easyrsa executable from your local rather than from docker'
-    class_option :bucket, desc: 's3 bucket'
+    class_option :bucket, desc: 's3 bucket, if not set one will be generated for you'
 
     class_option :subnet_ids, required: true, type: :array, desc: 'subnet id to associate your vpn with'
     class_option :default_groups, default: [], type: :array, desc: 'groups to allow through the subnet associations when using federated auth'
@@ -68,6 +69,18 @@ module CfnVpn::Actions
       }
     end
 
+    def create_bucket_if_bucket_not_set
+      if !@options['bucket']
+        CfnVpn::Log.logger.info "creating s3 bucket"
+        bucket = CfnVpn::S3Bucket.new(@options['region'], @name)
+        bucket_name = bucket.generate_bucket_name
+        bucket.create_bucket(bucket_name)
+        @config[:bucket] = bucket_name
+      else
+        @config[:bucket] = @options['bucket']
+      end
+    end
+
     def set_type
       if @options['saml_arn']
         @config[:type] = 'federated'
@@ -80,15 +93,6 @@ module CfnVpn::Actions
         @config[:default_groups] = []
       end
       CfnVpn::Log.logger.info "initialising #{@config[:type]} client vpn"
-    end
-
-    def conditional_options_check
-      if @config[:type] == 'certificate'
-        if !@options['bucket']
-          CfnVpn::Log.logger.error "--bucket option must be specified if creating a client vpn with certificate based authentication"
-          exit 1
-        end
-      end
     end
 
     def stack_exist
@@ -114,7 +118,7 @@ module CfnVpn::Actions
          # we only need the server certificate to ACM if it is a SAML federated client vpn
         @config[:client_cert_arn] = cert.upload_certificates(@options['region'],@client_cn,'client')
         # and only need to upload the certs to s3 if using certificate authenitcation
-        s3 = CfnVpn::S3.new(@options['region'],@options['bucket'],@name)
+        s3 = CfnVpn::S3.new(@options['region'],@config[:bucket],@name)
         s3.store_object("#{@build_dir}/certificates/ca.tar.gz")
       end
     end
