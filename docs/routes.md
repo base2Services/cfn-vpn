@@ -85,7 +85,7 @@ routes:
   desc: route to prod peered vpc
   groups:
   - ops
-- cidr: example.com
+- dns: example.com
   desc: my dev alb
   groups:
   - dev
