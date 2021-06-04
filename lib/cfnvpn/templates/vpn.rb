@@ -163,7 +163,7 @@ module CfnVpn
         if cidr_routes.any?
           cidr_routes.each do |route|
             EC2_ClientVpnRoute(:"#{route[:cidr].resource_safe}VpnRoute") {
-              Description "cfnvpn static route for #{route[:cidr]}. #{route[:desc]}"
+              Description "cfnvpn static route for #{route[:cidr]}. #{route[:desc]}".strip
               ClientVpnEndpointId Ref(:ClientVpnEndpoint)
               DestinationCidrBlock route[:cidr]
               TargetVpcSubnetId route[:subnet]
@@ -172,7 +172,7 @@ module CfnVpn
             if route[:groups].any?
               route[:groups].each do |group|
                 EC2_ClientVpnAuthorizationRule(:"#{route[:cidr].resource_safe}AuthorizationRule#{group.resource_safe}"[0..255]) {
-                  Description "cfnvpn static authorization rule for group #{group} to route #{route[:cidr]}. #{route[:desc]}"
+                  Description "cfnvpn static authorization rule for group #{group} to route #{route[:cidr]}. #{route[:desc]}".strip
                   AccessGroupId group
                   ClientVpnEndpointId Ref(:ClientVpnEndpoint)
                   TargetNetworkCidr route[:cidr]
@@ -180,7 +180,7 @@ module CfnVpn
               end
             else
               EC2_ClientVpnAuthorizationRule(:"#{route[:cidr].resource_safe}AllowAllAuthorizationRule") {
-                Description "cfnvpn static allow all authorization rule to route #{route[:cidr]}. #{route[:desc]}"
+                Description "cfnvpn static allow all authorization rule to route #{route[:cidr]}. #{route[:desc]}".strip
                 AuthorizeAllGroups true
                 ClientVpnEndpointId Ref(:ClientVpnEndpoint)
                 TargetNetworkCidr route[:cidr]
