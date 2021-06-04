@@ -92,7 +92,7 @@ module CfnVpn::Actions
           cidr: @options[:cidr],
           desc: @options.fetch(:desc, ""),
           subnet: @options.fetch(:subnet, @config[:subnet_ids].first),
-          groups: @options.fetch(@options[:groups], []) + @options.fetch(@options[:add_groups], [])
+          groups: @options.fetch(:groups, []) + @options.fetch(:add_groups, [])
         }
       elsif !@route && @options[:dns]
         CfnVpn::Log.logger.info "adding new route lookup for dns record #{@options[:dns]}"
@@ -100,7 +100,7 @@ module CfnVpn::Actions
           dns: @options[:dns],
           desc: @options.fetch(:desc, ""),
           subnet: @options.fetch(:subnet, @config[:subnet_ids].first),
-          groups: @options.fetch(@options[:groups], []) + @options.fetch(@options[:add_groups], [])
+          groups: @options.fetch(:groups, []) + @options.fetch(:add_groups, [])
         }
       else
         @skip_update = true
