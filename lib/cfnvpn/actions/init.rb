@@ -36,6 +36,7 @@ module CfnVpn::Actions
     class_option :stop, type: :string, desc: 'cloudwatch event cron schedule in UTC to disassociate subnets to the client vpn'
 
     class_option :saml_arn, desc: 'IAM SAML idenditiy providor arn if using SAML federated authentication'
+    class_option :saml_self_service_arn, desc: 'IAM SAML idenditiy providor arn for the self service portal'
     class_option :directory_id, desc: 'AWS Directory Service directory id if using Active Directory authentication'
 
     def self.source_root
@@ -64,6 +65,7 @@ module CfnVpn::Actions
         start: @options['start'],
         stop: @options['stop'],
         saml_arn: @options['saml_arn'],
+        saml_self_service_arn: @options['saml_self_service_arn'],
         directory_id: @options['directory_id'],
         routes: []
       }

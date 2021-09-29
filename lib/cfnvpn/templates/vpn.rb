@@ -33,7 +33,7 @@ module CfnVpn
             {
               FederatedAuthentication: {
                 SAMLProviderArn: config[:saml_arn],
-                SelfServiceSAMLProviderArn: config[:saml_arn]
+                SelfServiceSAMLProviderArn: config[:saml_self_service_arn].nil? ? config[:saml_arn] : config[:saml_self_service_arn]
               },
               Type: 'federated-authentication'
             }
