@@ -128,25 +128,27 @@ When using a federated ClientVPN you can modify the default auth to only allow s
 
 ```
 Options:
-  r, [--region=REGION]                         # AWS Region
-                                               # Default: ap-southeast-2
-      [--verbose], [--no-verbose]              # set log level to debug
-      --server-cn=SERVER_CN                    # server certificate common name
-      [--client-cn=CLIENT_CN]                  # client certificate common name
-      [--easyrsa-local], [--no-easyrsa-local]  # run the easyrsa executable from your local rather than from docker
-      [--bucket=BUCKET]                        # s3 bucket
-      --subnet-ids=one two three               # subnet id to associate your vpn with
-      [--default-groups=one two three]         # groups to allow through the subnet associations when using federated auth
-      [--cidr=CIDR]                            # cidr from which to assign client IP addresses
-                                               # Default: 10.250.0.0/16
-      [--dns-servers=one two three]            # DNS Servers to push to clients.
-      [--split-tunnel], [--no-split-tunnel]    # only push routes to the client on the vpn endpoint
-                                               # Default: true
-      [--internet-route=INTERNET_ROUTE]        # [subnet-id] create a default route to the internet through a subnet
-      [--protocol=PROTOCOL]                    # set the protocol for the vpn connections
-                                               # Default: udp
-                                               # Possible values: udp, tcp
-      [--start=START]                          # cloudwatch event cron schedule in UTC to associate subnets to the client vpn
-      [--stop=STOP]                            # cloudwatch event cron schedule in UTC to disassociate subnets to the client vpn
-      [--saml-arn=SAML_ARN]                    # IAM SAML idenditiy providor arn if using SAML federated authentication
+  r, [--region=REGION]                                 # AWS Region
+                                                       # Default: ap-southeast-2
+      [--verbose], [--no-verbose]                      # set log level to debug
+      --server-cn=SERVER_CN                            # server certificate common name
+      [--client-cn=CLIENT_CN]                          # client certificate common name
+      [--easyrsa-local], [--no-easyrsa-local]          # run the easyrsa executable from your local rather than from docker
+      [--bucket=BUCKET]                                # s3 bucket, if not set one will be generated for you
+      --subnet-ids=one two three                       # subnet id to associate your vpn with
+      [--default-groups=one two three]                 # groups to allow through the subnet associations when using federated auth
+      [--cidr=CIDR]                                    # cidr from which to assign client IP addresses
+                                                       # Default: 10.250.0.0/16
+      [--dns-servers=one two three]                    # DNS Servers to push to clients.
+      [--split-tunnel], [--no-split-tunnel]            # only push routes to the client on the vpn endpoint
+                                                       # Default: true
+      [--internet-route=INTERNET_ROUTE]                # [subnet-id] create a default route to the internet through a subnet
+      [--protocol=PROTOCOL]                            # set the protocol for the vpn connections
+                                                       # Default: udp
+                                                       # Possible values: udp, tcp
+      [--start=START]                                  # cloudwatch event cron schedule in UTC to associate subnets to the client vpn
+      [--stop=STOP]                                    # cloudwatch event cron schedule in UTC to disassociate subnets to the client vpn
+      [--saml-arn=SAML_ARN]                            # IAM SAML idenditiy providor arn if using SAML federated authentication
+      [--saml-self-service-arn=SAML_SELF_SERVICE_ARN]  # IAM SAML idenditiy providor arn for the self service portal
+      [--directory-id=DIRECTORY_ID]                    # AWS Directory Service directory id if using Active Directory authentication
 ```
