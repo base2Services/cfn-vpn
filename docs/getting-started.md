@@ -63,21 +63,38 @@ This option is for when you want to manage users through an external directory p
 The following command and required option will launch a new federated based Client-VPN
 
 ```sh
-cfn-vpn init [name] --server-cn [server certificate name] --subnet-ids [list of subets to associate with the vpn] --saml-arn [identity providor arn]
+cfn-vpn init [name] --server-cn [server certificate name] \
+  --subnet-ids [list of subets to associate with the vpn] \
+  --saml-arn [identity providor arn]
 ```
 
 The default authorization rule for the associated subnets allows all. You can optionally change this by using the `--default-groups` flag to set groups on the default authorization rule. 
 
+```diff
+! Group id's must be used if creating authorisation rules. 
+! Each SAML providor will have different group id's and means of retrieving them.
+```
+
 ```sh
-cfn-vpn init [name] --server-cn [server certificate name] --subnet-ids [list of subnet to associate with the vpn] --saml-arn [identity provider arn]  --default-groups [list of group ids]
+cfn-vpn init [name] --server-cn [server certificate name] \
+  --subnet-ids [list of subnet to associate with the vpn] \
+  --saml-arn [identity provider arn]  \
+  --default-groups [list of group ids]
 ```
 
 **AWS SSO**
 
 If using AWS SSO as your SAML provider check this guide on how to set up SAML using AWS SSO https://codeburst.io/the-aws-client-vpn-federated-authentication-missing-example-655e0a1ff7f4
 
-If you want to leverage the Self Service Portal you need to add the specify the `--saml-self-service-arn [self service identity provider arn]` You can allow the example here https://aws.amazon.com/blogs/security/authenticate-aws-client-vpn-users-with-aws-single-sign-on/ on how to setup the self sign-on sso application
+If you want to leverage the Self Service Portal you need to add the specify the `--saml-self-service-arn [self service identity provider arn]` You can follow the example here https://aws.amazon.com/blogs/security/authenticate-aws-client-vpn-users-with-aws-single-sign-on/ on how to setup the self sign-on sso application
 
+```sh
+cfn-vpn init [name] --server-cn [server certificate name] \
+  --subnet-ids [list of subnet to associate with the vpn] \
+  --saml-arn [identity provider arn]  \
+  --saml-self-service-arn [self service identity provider arn] \
+  --default-groups [list of group ids]
+```
 
 ### AWS Directory Services Authenticated VPN
 
@@ -86,13 +103,18 @@ This option integrates Microsoft Active Directory or Simple AD through AWS Direc
 The following command and required option will launch a new directory service based Client-VPN
 
 ```sh
-cfn-vpn init simple-ad --server-cn [server certificate name] --subnet-ids [list of subets to associate with the vpn] --directory-id [aws directirory serivce id]
+cfn-vpn init simple-ad --server-cn [server certificate name] \
+  --subnet-ids [list of subets to associate with the vpn] \
+  --directory-id [aws directirory serivce id]
 ```
 
 The default authorization rule for the associated subnets allows all. You can optionally change this by using the `--default-groups` flag to set groups on the default authorization rule. The group Id is the Active Directory Group ID or SID.
 
 ```sh
-cfn-vpn init simple-ad --server-cn [server certificate name] --subnet-ids [list of subets to associate with the vpn] --directory-id [aws directirory serivce id] --default-groups [list of group ids]
+cfn-vpn init simple-ad --server-cn [server certificate name] \
+  --subnet-ids [list of subets to associate with the vpn] \
+  --directory-id [aws directirory serivce id] \
+  --default-groups [list of group ids]
 ```
 
 See this guide for further help on setting up https://shogokobayashi.com/2019/05/18/aws-client-vpn-with-simplead/
