@@ -353,7 +353,10 @@ module CfnVpn
                     'ec2:DescribeClientVpnAuthorizationRules',
                     'ec2:DescribeClientVpnEndpoints',
                     'ec2:DescribeClientVpnConnections',
-                    'ec2:TerminateClientVpnConnections'
+                    'ec2:TerminateClientVpnConnections',
+                    'ec2:DescribeClientVpnRoutes',
+                    'ec2:CreateClientVpnRoute',
+                    'ec2:DeleteClientVpnRoute'
                   ],
                   Resource: '*'
                 }]
