@@ -1,11 +1,12 @@
 import socket
 import boto3
 from botocore.exceptions import ClientError
+from slack import post_event_to_slack
+from states import *
 import logging
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
 
 def delete_route(client, vpn_endpoint, subnet, cidr):
     client.delete_client_vpn_route(
@@ -97,7 +98,8 @@ def handler(event,context):
     cidrs = [ ip + "/32" for ip in socket.gethostbyname_ex(event['Record'])[-1]]
     logger.info(f"resolved endpoint {event['Record']} to {cidrs}")
   except socket.gaierror as e:
-    logger.exception(f"failed to resolve record {event['Record']}")
+    logger.error(f"failed to resolve record {event['Record']}", exc_info=True)
+    post_event_to_slack(message=f"failed to resolve record {event['Record']}", state=RESOLVE_FAILED, error=e)
     return 'KO'
   
   client = boto3.client('ec2')
@@ -119,7 +121,41 @@ def handler(event,context):
         if e.response['Error']['Code'] == 'InvalidClientVpnDuplicateRoute':
           logger.error(f"route for CIDR {cidr} already exists with a different endpoint")
           continue
+        elif e.response['Error']['Code'] == 'ClientVpnRouteLimitExceeded':
+          logger.error("vpn route table has reached it's route limit", exc_info=True)
+          post_event_to_slack(
+            message=f"unable to create route {cidr} from {event['Record']}",
+            state=ROUTE_LIMIT_EXCEEDED,
+            error="vpn route table has reached it's route limit"
+          )
+          continue
+        elif e.response['Error']['Code'] == 'ClientVpnAuthorizationRuleLimitExceeded':
+          logger.error("vpn has reached it's authorization rule limit", exc_info=True)
+          post_event_to_slack(
+            message=f"unable to authorization rule for route {cidr} from {event['Record']}",
+            state=AUTH_RULE_LIMIT_EXCEEDED,
+            error="vpn has reached it's authorization rule limit"
+          )
+          continue
+        elif e.response['Error']['Code'] == 'ConcurrentMutationLimitExceeded':
+          logger.error("authorization rule modifications are being rated limited", exc_info=True)
+          post_event_to_slack(
+            message=f"unable to authorization rule for route {cidr} from {event['Record']}", 
+            state=RATE_LIMIT_EXCEEDED,
+            error="authorization rule modifications are being rated limited"
+          )
+          continue
+        elif e.response['Error']['Code'] == 'InvalidClientVpnActiveAssociationNotFound':
+          logger.error("no subnets are associated with the vpn", exc_info=True)
+          post_event_to_slack(
+            message=f"unable to create the route {cidr} from {event['Record']}", 
+            state=SUBNET_NOT_ASSOCIATED,
+            error="no subnets are associated with the vpn"
+          )
+          continue
         raise e
+
+      post_event_to_slack(message=f"added new route {cidr} for DNS entry {event['Record']}", state=NEW_ROUTE)
         
     # if the route already exists
     else:
@@ -168,6 +204,7 @@ def handler(event,context):
       revoke_route_auth(client, event, route['DestinationCidr'])
     except ClientError as e:
       if e.response['Error']['Code'] == 'InvalidClientVpnEndpointAuthorizationRuleNotFound':
+        # catching this error incase we try to delete a auth rule that has ben manually removed
         pass
       else:
         raise e
@@ -176,8 +213,11 @@ def handler(event,context):
       delete_route(client, event['ClientVpnEndpointId'], route['TargetSubnet'], route['DestinationCidr'])
     except ClientError as e:
       if e.response['Error']['Code'] == 'InvalidClientVpnRouteNotFound':
+        # catching this error incase we try to delete a route that has ben manually removed
         pass
       else:
         raise e
+    
+    post_event_to_slack(message=f"removed expired route {route['DestinationCidr']} for endpoint {event['Record']}", state=EXPIRED_ROUTE)
   
   return 'OK'

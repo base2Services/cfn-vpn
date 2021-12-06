@@ -37,6 +37,8 @@ module CfnVpn::Actions
     class_option :start, type: :string, desc: 'cloudwatch event cron schedule in UTC to associate subnets to the client vpn'
     class_option :stop, type: :string, desc: 'cloudwatch event cron schedule in UTC to disassociate subnets to the client vpn'
 
+    class_option :slack_webhook_url, type: :string, desc: 'slack webhook url to send notifications from the scheduler and route populator'
+
     class_option :param_yaml, type: :string, desc: 'pass in cfnvpn params through YAML file'
 
     class_option :bucket, desc: 's3 bucket'

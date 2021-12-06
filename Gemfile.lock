@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    cfn-vpn (1.2.0)
+    cfn-vpn (1.3.4)
       aws-sdk-acm (~> 1, < 2)
       aws-sdk-cloudformation (~> 1, < 2)
       aws-sdk-ec2 (~> 1.95, < 2)
@@ -24,7 +24,7 @@ GEM
     aws-sdk-cloudformation (1.49.0)
       aws-sdk-core (~> 3, >= 3.112.0)
       aws-sigv4 (~> 1.1)
-    aws-sdk-core (3.113.0)
+    aws-sdk-core (3.119.0)
       aws-eventstream (~> 1, >= 1.0.2)
       aws-partitions (~> 1, >= 1.239.0)
       aws-sigv4 (~> 1.1)
