@@ -9,11 +9,17 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 def delete_route(client, vpn_endpoint, subnet, cidr):
+  try:
     client.delete_client_vpn_route(
       ClientVpnEndpointId=vpn_endpoint,
       TargetVpcSubnetId=subnet,
       DestinationCidrBlock=cidr,
     )
+  except ClientError as e:
+    if e.response['Error']['Code'] == 'InvalidClientVpnEndpointAuthorizationRuleNotFound':
+      logger.info(f"route not found when deleting", exc_info=True)
+    else:
+      raise e
 
   
 def create_route(client, event, cidr):
@@ -39,8 +45,16 @@ def revoke_route_auth(client, event, cidr, group = None):
     args['RevokeAllGroups'] = True
   else:
     args['AccessGroupId'] = group
-    
-  client.revoke_client_vpn_ingress(**args)
+  
+  try:
+    client.revoke_client_vpn_ingress(**args)
+  except ClientError as e:
+    if e.response['Error']['Code'] == 'ConcurrentMutationLimitExceeded':
+      logger.warn(f"revoking auth is being rate limited", exc_info=True)
+    elif e.response['Error']['Code'] == 'InvalidClientVpnEndpointAuthorizationRuleNotFound':
+      logger.info(f"rule not found when revoking", exc_info=True)
+    else:
+      raise e
 
 
 def authorize_route(client, event, cidr, group = None):
@@ -103,6 +117,23 @@ def handler(event,context):
     return 'KO'
   
   client = boto3.client('ec2')
+
+  # describe vpn and check if subnets are associated with the vpn
+  response = client.describe_client_vpn_endpoints(
+    ClientVpnEndpointIds=[event['ClientVpnEndpointId']]
+  )
+
+  if not response['ClientVpnEndpoints']:
+    logger.error(f"endpoint not found")
+    post_event_to_slack(message=f"failed create routes for {event['Record']}", state=FAILED, error="endpoint not found")
+    return 'KO'
+
+  endpoint = response['ClientVpnEndpoints'][0]
+  if endpoint['Status'] == 'pending-associate':
+    logger.error(f"no subnets associated with endpoint")
+    post_event_to_slack(message=f"failed create routes for {event['Record']}", state=FAILED, error="vpn is in a stopped state")
+    return 'KO'
+
   routes = get_routes(client, event)
 
   for cidr in cidrs:
@@ -199,25 +230,8 @@ def handler(event,context):
   expired_routes = [route for route in routes if route['DestinationCidr'] not in cidrs]
   for route in expired_routes:
     logger.info(f"removing expired route {route['DestinationCidr']} for endpoint {event['Record']}")
-    
-    try:
-      revoke_route_auth(client, event, route['DestinationCidr'])
-    except ClientError as e:
-      if e.response['Error']['Code'] == 'InvalidClientVpnEndpointAuthorizationRuleNotFound':
-        # catching this error incase we try to delete a auth rule that has ben manually removed
-        pass
-      else:
-        raise e
-                          
-    try:
-      delete_route(client, event['ClientVpnEndpointId'], route['TargetSubnet'], route['DestinationCidr'])
-    except ClientError as e:
-      if e.response['Error']['Code'] == 'InvalidClientVpnRouteNotFound':
-        # catching this error incase we try to delete a route that has ben manually removed
-        pass
-      else:
-        raise e
-    
+    revoke_route_auth(client, event, route['DestinationCidr'])
+    delete_route(client, event['ClientVpnEndpointId'], route['TargetSubnet'], route['DestinationCidr'])
     post_event_to_slack(message=f"removed expired route {route['DestinationCidr']} for endpoint {event['Record']}", state=EXPIRED_ROUTE)
   
   return 'OK'
