@@ -16,11 +16,15 @@ def delete_route(client, vpn_endpoint, subnet, cidr):
 
   
 def create_route(client, event, cidr):
+  description = f"cfnvpn auto generated route for endpoint {event['Record']}."
+  if event['Description']:
+    description += f" {event['Description']}"
+
   client.create_client_vpn_route(
     ClientVpnEndpointId=event['ClientVpnEndpointId'],
     DestinationCidrBlock=cidr,
     TargetVpcSubnetId=event['TargetSubnet'],
-    Description=f"cfnvpn auto generated route for endpoint {event['Record']}. {event['Description']}"
+    Description=description
   )
 
 
@@ -39,10 +43,14 @@ def revoke_route_auth(client, event, cidr, group = None):
 
 
 def authorize_route(client, event, cidr, group = None):
+  description = f"cfnvpn auto generated authorization for endpoint {event['Record']}."
+  if event['Description']:
+    description += f" {event['Description']}"
+
   args = {
     'ClientVpnEndpointId': event['ClientVpnEndpointId'],
     'TargetNetworkCidr': cidr,
-    'Description': f"cfnvpn auto generated authorization for endpoint {event['Record']}. {event['Description']}"
+    'Description': description
   }
   
   if group is None:
