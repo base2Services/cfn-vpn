@@ -42,3 +42,4 @@ For further information on the authentication types please visit https://docs.aw
 4. [Managing Routes](routes.md)
 5. [Stop and Start Client-VPN](scheduling.md)
 6. [Managing Sessions](sessions.md)
+7. [Slack Notifications](slack-notifications.md)
