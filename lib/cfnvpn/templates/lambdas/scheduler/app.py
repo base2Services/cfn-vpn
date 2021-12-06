@@ -44,8 +44,8 @@ def handler(event, context):
     return 'KO'
 
   if event['AssociateSubnets'] == 'true':
-    post_event_to_slack(message=f"successfully assocated subnets with the client vpn", state=START_COMPLETE)
+    post_event_to_slack(message=f"successfully assocated subnets with the client vpn", state=START_IN_PROGRESS)
   else:
-    post_event_to_slack(message=f"successfully dissassocated subnets with the client vpn", state=STOP_COMPLETE)
+    post_event_to_slack(message=f"successfully dissassocated subnets with the client vpn", state=STOP_IN_PROGRESS)
 
   return 'OK'

@@ -1,13 +1,13 @@
 """
 states:
 
-START_COMPLETE: associated subnets with the client vpn successfully
-STOP_COMPLETE: disassociated subnets with the client vpn successfully
-START_FAILED: failed to associated subnets with the client vpn
-STOP_FAILED: failed to disassociated subnets with the client vpn
+START_IN_PROGRESS: associating subnets with the Client VPN
+STOP_IN_PROGRESS: disassociating subnets with the Client VPN
+START_FAILED: failed to associated subnets with the Client VPN
+STOP_FAILED: failed to disassociated subnets with the Client VPN
 """
 
-START_COMPLETE = 'START_COMPLETE'
-STOP_COMPLETE = 'STOP_COMPLETE'
+START_IN_PROGRESS = 'START_IN_PROGRESS'
+STOP_IN_PROGRESS = 'STOP_IN_PROGRESS'
 START_FAILED = 'START_FAILED'
 STOP_FAILED = 'STOP_FAILED'

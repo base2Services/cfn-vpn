@@ -29,7 +29,7 @@ cfn-vpn modify [name] --slack-webhook-url "https://hooks.slack.com/services/T000
 
 ## Scheduler Events
 
-- `START_COMPLETE`: associated subnets with the Client VPN successfully
-- `STOP_COMPLETE`: disassociated subnets with the Client VPN successfully
+- `START_IN_PROGRESS`: associating subnets with the Client VPN
+- `STOP_IN_PROGRESS`: disassociating subnets with the Client VPN
 - `START_FAILED`: failed to associated subnets with the Client VPN
 - `STOP_FAILED`: failed to disassociated subnets with the Client VPN
