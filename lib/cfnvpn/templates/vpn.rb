@@ -146,7 +146,7 @@ module CfnVpn
             end
 
             Events_Rule(:"CfnVpnAutoRoutePopulatorEvent#{route[:dns].resource_safe}"[0..255]) {
-              State 'ENABLED'
+              State FnIf(:EnableSubnetAssociation, 'ENABLED', 'DISABLED')
               Description "cfnvpn auto route populator schedule for #{route[:dns]}"
               ScheduleExpression "rate(5 minutes)"
               Targets([
@@ -364,6 +364,25 @@ module CfnVpn
                     'ec2:DeleteClientVpnRoute'
                   ],
                   Resource: '*'
+                }]
+              }
+            },
+            {
+              PolicyName: 'route-populator-events',
+              PolicyDocument: {
+                Version: '2012-10-17',
+                Statement: [{
+                  Effect: 'Allow',
+                  Action: [
+                    'events:PutRule',
+                    'events:PutTargets',
+                    'events:DeleteRule',
+                    'events:DescribeRule',
+                    'events:DisableRule',
+                    'events:EnableRule',
+                    'events:RemoveTargets'
+                  ],
+                  Resource: FnSub("arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/#{name}-cfnvpn-CfnVpnAutoRoutePopulator*")
                 }]
               }
             },
