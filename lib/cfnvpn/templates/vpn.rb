@@ -146,7 +146,9 @@ module CfnVpn
             end
 
             Events_Rule(:"CfnVpnAutoRoutePopulatorEvent#{route[:dns].resource_safe}"[0..255]) {
-              State FnIf(:EnableSubnetAssociation, 'ENABLED', 'DISABLED')
+              Condition(:EnableSubnetAssociation)
+              DependsOn network_assoc_dependson if network_assoc_dependson.any?
+              State 'ENABLED'
               Description "cfnvpn auto route populator schedule for #{route[:dns]}"
               ScheduleExpression "rate(5 minutes)"
               Targets([
