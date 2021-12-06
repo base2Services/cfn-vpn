@@ -12,7 +12,7 @@ class Slack:
         self.username = username
         self.slack_url = os.environ.get('SLACK_URL')
 
-    def post_event(self, message, state, error=None):
+    def post_event(self, message, state, error=None, support_case=None):
         """Posts event to slack using an incoming webhook
         Parameters
         ----------
@@ -22,6 +22,8 @@ class Slack:
             the state of the event
         error: str
             error message to add to the message
+        support_case: str
+            displays a aws console link to the suport case in the message
         """
 
         if not self.slack_url.startswith('https://hooks.slack.com'):
@@ -35,8 +37,12 @@ class Slack:
             colour = '#3ead3e'
 
         text = f'Message: {message}\nState: {state}'
+        
         if error:
             text += f'\nError: {error}'
+        
+        if support_case:
+            text += f'\nSupport Case: <https://console.aws.amazon.com/support/cases#/{support_case}|{support_case}>'
 
         payload = {
             'username': self.username,

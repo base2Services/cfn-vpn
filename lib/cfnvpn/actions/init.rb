@@ -40,7 +40,8 @@ module CfnVpn::Actions
     class_option :directory_id, desc: 'AWS Directory Service directory id if using Active Directory authentication'
 
     class_option :slack_webhook_url, type: :string, desc: 'slack webhook url to send notifications from the scheduler and route populator'
-
+    class_option :auto_limit_increase, type: :boolean, default: true, desc: 'automatically request a AWS service quota increase if limits are hit for route entry and authorization rule limits'
+    
     def self.source_root
       File.dirname(__FILE__)
     end
@@ -70,6 +71,7 @@ module CfnVpn::Actions
         saml_self_service_arn: @options['saml_self_service_arn'],
         directory_id: @options['directory_id'],
         slack_webhook_url: @options['slack_webhook_url'],
+        auto_limit_increase: @options['auto_limit_increase'],
         routes: []
       }
     end
