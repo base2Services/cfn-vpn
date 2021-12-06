@@ -96,3 +96,39 @@ run the `modify` command and supply the yaml file to apply the changes
 ```sh
 cfn-vpn routes [name] --params-yaml cfnvpn.[name].yaml
 ```
+
+## Route Limits
+
+Client VPN have a number or service limits associated with it some of which can be increased and may need to be increased by default.
+
+| Name | Default | Adjustable | 
+| --- | --- | --- | 
+| Authorization rules per Client VPN endpoint | 50 | [Yes](https://console.aws.amazon.com/servicequotas/home/services/ec2/quotas/L-9A1BC94B) | 
+| Client VPN disconnect timeout | 24 hours | No | 
+| Client VPN endpoints per Region | 5 | [Yes](https://console.aws.amazon.com/servicequotas/home/services/ec2/quotas/L-8EA77D34) | 
+| Concurrent client connections per Client VPN endpoint |  This value depends on the number of subnet associations per endpoint\. [\[See the AWS documentation website for more details\]](http://docs.aws.amazon.com/vpn/latest/clientvpn-admin/limits.html)  | [Yes](https://console.aws.amazon.com/servicequotas/home/services/ec2/quotas/L-C4B238BF) | 
+| Concurrent operations per Client VPN endpoint † | 10 | No | 
+| Entries in a client certificate revocation list for Client VPN endpoints | 20,000 | No | 
+| Routes per Client VPN endpoint | 10 | [Yes](https://console.aws.amazon.com/servicequotas/home/services/ec2/quotas/L-401D78F7) | 
+
+† Operations include:
++ Associate or disassociate subnets
++ Create or delete routes
++ Create or delete inbound and outbound rules
++ Create or delete security groups
+
+Check out the AWS [docs](https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/limits.html) for up to date details
+
+### Increasing Limits
+
+Routes per Client VPN endpoint
+
+```sh
+aws service-quotas request-service-quota-increase --service-code ec2 --quota-code L-401D78F7 --desired-value 20
+```
+
+Authorization rules per Client VPN endpoint
+
+```sh
+aws service-quotas request-service-quota-increase --service-code ec2 --quota-code L-9A1BC94B --desired-value 75
+```
