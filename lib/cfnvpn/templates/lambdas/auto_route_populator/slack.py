@@ -23,6 +23,8 @@ def post_event_to_slack(message, state, error=None):
 
     if 'FAILED' in state or 'LIMIT_EXCEEDED' in state:
         colour = '#ad0614'
+    elif 'NOT_ASSOCIATED' in state:
+        colour = '#d4b126'
     else: 
         colour = '#3ead3e'
 
