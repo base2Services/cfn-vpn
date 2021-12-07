@@ -26,6 +26,7 @@ cfn-vpn modify [name] --slack-webhook-url "https://hooks.slack.com/services/T000
 - `RESOLVE_FAILED`: failed to resolve the provided dns entry
 - `RATE_LIMIT_EXCEEDED`: concurrent modifications of the route table is being rated limited
 - `SUBNET_NOT_ASSOCIATED`: no subnets are associated with the Client VPN
+- `QUOTA_INCREASE_REQUEST`: automatic quota increase made 
 
 ## Scheduler Events
 

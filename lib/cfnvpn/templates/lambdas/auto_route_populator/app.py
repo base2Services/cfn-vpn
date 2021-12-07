@@ -1,9 +1,11 @@
+import os
 import socket
 import boto3
 from botocore.exceptions import ClientError
 from lib.slack import Slack
 from states import *
 import logging
+from quotas import increase_quota, AUTH_RULE_TABLE_QUOTA_CODE, ROUTE_TABLE_QUOTA_CODE
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -90,7 +92,7 @@ def get_routes(client, event):
   )
   
   routes = [route for route in response['Routes'] if event['Record'] in route['Description']]
-  logger.info(f"found {len(routes)} exisiting routes for {event['Record']}")
+  logger.info(f"found {len(routes)} existing routes for {event['Record']}")
   return routes
 
 
@@ -141,6 +143,10 @@ def handler(event,context):
 
   routes = get_routes(client, event)
 
+  auto_limit_increase = os.environ.get('AUTO_LIMIT_INCREASE')
+  route_limit_increase_required = False
+  auth_rules_limit_increase_required = False
+
   for cidr in cidrs:
     route = next((route for route in routes if route['DestinationCidr'] == cidr), None)
     
@@ -158,6 +164,7 @@ def handler(event,context):
           logger.error(f"route for CIDR {cidr} already exists with a different endpoint")
           continue
         elif e.response['Error']['Code'] == 'ClientVpnRouteLimitExceeded':
+          route_limit_increase_required = True
           logger.error("vpn route table has reached the route limit", exc_info=True)
           slack.post_event(
             message=f"unable to create route {cidr} from {event['Record']}",
@@ -166,6 +173,7 @@ def handler(event,context):
           )
           continue
         elif e.response['Error']['Code'] == 'ClientVpnAuthorizationRuleLimitExceeded':
+          auth_rules_limit_increase_required = True
           logger.error("vpn has reached the authorization rule limit", exc_info=True)
           slack.post_event(
             message=f"unable add to authorization rule for route {cidr} from {event['Record']}",
@@ -228,8 +236,20 @@ def handler(event,context):
           revoke_route_auth(client, event, cidr)
           authorize_route(client, event, cidr)
           
-      
+  # request limit increase
+  if route_limit_increase_required and auto_limit_increase:
+    case_id = increase_quota(10, ROUTE_TABLE_QUOTA_CODE, event['ClientVpnEndpointId'])
+    if case_id is not None:
+      slack.post_event(message=f"requested an increase for the routes per vpn service quota", state=QUOTA_INCREASE_REQUEST, support_case=case_id)
+    else:
+      logger.info(f"routes per vpn service quota increase request pending")
 
+  if auth_rules_limit_increase_required and auto_limit_increase:
+    case_id = increase_quota(20, AUTH_RULE_TABLE_QUOTA_CODE, event['ClientVpnEndpointId'])
+    if case_id is not None:
+      slack.post_event(message=f"requested an increase for the authorization rules per vpn service quota", state=QUOTA_INCREASE_REQUEST, support_case=case_id)
+    else:
+      logger.info(f"authorization rules per vpn service quota increase request pending")
   
   # clean up any expired routes when the ips for an endpoint change
   expired_routes = [route for route in routes if route['DestinationCidr'] not in cidrs]

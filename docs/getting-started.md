@@ -50,7 +50,7 @@ This is the default option when launching a ClientVPN using certificated based a
 The following command and required options will launch a new certificate based Client-VPN
 
 ```sh
-cfn-vpn init [name] --bucket [s3-bucket] --server-cn [server certificate name] --subnet-ids [list of subets to associate with the vpn]
+cfn-vpn init [name] --bucket [s3-bucket] --server-cn [server certificate name] --subnet-ids [list of subnets to associate with the vpn]
 ```
 
 
@@ -64,15 +64,15 @@ The following command and required option will launch a new federated based Clie
 
 ```sh
 cfn-vpn init [name] --server-cn [server certificate name] \
-  --subnet-ids [list of subets to associate with the vpn] \
-  --saml-arn [identity providor arn]
+  --subnet-ids [list of subnets to associate with the vpn] \
+  --saml-arn [identity provider arn]
 ```
 
 The default authorization rule for the associated subnets allows all. You can optionally change this by using the `--default-groups` flag to set groups on the default authorization rule. 
 
 ```diff
-! Group id's must be used if creating authorisation rules. 
-! Each SAML providor will have different group id's and means of retrieving them.
+! Group id's must be used if creating authorization rules. 
+! Each SAML provider will have different group id's and means of retrieving them.
 ```
 
 ```sh
@@ -104,16 +104,16 @@ The following command and required option will launch a new directory service ba
 
 ```sh
 cfn-vpn init simple-ad --server-cn [server certificate name] \
-  --subnet-ids [list of subets to associate with the vpn] \
-  --directory-id [aws directirory serivce id]
+  --subnet-ids [list of subnets to associate with the vpn] \
+  --directory-id [aws directory service id]
 ```
 
 The default authorization rule for the associated subnets allows all. You can optionally change this by using the `--default-groups` flag to set groups on the default authorization rule. The group Id is the Active Directory Group ID or SID.
 
 ```sh
 cfn-vpn init simple-ad --server-cn [server certificate name] \
-  --subnet-ids [list of subets to associate with the vpn] \
-  --directory-id [aws directirory serivce id] \
+  --subnet-ids [list of subnets to associate with the vpn] \
+  --directory-id [aws directory service id] \
   --default-groups [list of group ids]
 ```
 
@@ -128,27 +128,30 @@ When using a federated ClientVPN you can modify the default auth to only allow s
 
 ```
 Options:
-  r, [--region=REGION]                                 # AWS Region
-                                                       # Default: ap-southeast-2
-      [--verbose], [--no-verbose]                      # set log level to debug
-      --server-cn=SERVER_CN                            # server certificate common name
-      [--client-cn=CLIENT_CN]                          # client certificate common name
-      [--easyrsa-local], [--no-easyrsa-local]          # run the easyrsa executable from your local rather than from docker
-      [--bucket=BUCKET]                                # s3 bucket, if not set one will be generated for you
-      --subnet-ids=one two three                       # subnet id to associate your vpn with
-      [--default-groups=one two three]                 # groups to allow through the subnet associations when using federated auth
-      [--cidr=CIDR]                                    # cidr from which to assign client IP addresses
-                                                       # Default: 10.250.0.0/16
-      [--dns-servers=one two three]                    # DNS Servers to push to clients.
-      [--split-tunnel], [--no-split-tunnel]            # only push routes to the client on the vpn endpoint
-                                                       # Default: true
-      [--internet-route=INTERNET_ROUTE]                # [subnet-id] create a default route to the internet through a subnet
-      [--protocol=PROTOCOL]                            # set the protocol for the vpn connections
-                                                       # Default: udp
-                                                       # Possible values: udp, tcp
-      [--start=START]                                  # cloudwatch event cron schedule in UTC to associate subnets to the client vpn
-      [--stop=STOP]                                    # cloudwatch event cron schedule in UTC to disassociate subnets to the client vpn
-      [--saml-arn=SAML_ARN]                            # IAM SAML idenditiy providor arn if using SAML federated authentication
-      [--saml-self-service-arn=SAML_SELF_SERVICE_ARN]  # IAM SAML idenditiy providor arn for the self service portal
-      [--directory-id=DIRECTORY_ID]                    # AWS Directory Service directory id if using Active Directory authentication
+  r, [--region=REGION]                                     # AWS Region
+                                                           # Default: ap-southeast-2
+      [--verbose], [--no-verbose]                          # set log level to debug
+      --server-cn=SERVER_CN                                # server certificate common name
+      [--client-cn=CLIENT_CN]                              # client certificate common name
+      [--easyrsa-local], [--no-easyrsa-local]              # run the easyrsa executable from your local rather than from docker
+      [--bucket=BUCKET]                                    # s3 bucket, if not set one will be generated for you
+      --subnet-ids=one two three                           # subnet id to associate your vpn with
+      [--default-groups=one two three]                     # groups to allow through the subnet associations when using federated auth
+      [--cidr=CIDR]                                        # cidr from which to assign client IP addresses
+                                                           # Default: 10.250.0.0/16
+      [--dns-servers=one two three]                        # DNS Servers to push to clients.
+      [--split-tunnel], [--no-split-tunnel]                # only push routes to the client on the vpn endpoint
+                                                           # Default: true
+      [--internet-route=INTERNET_ROUTE]                    # [subnet-id] create a default route to the internet through a subnet
+      [--protocol=PROTOCOL]                                # set the protocol for the vpn connections
+                                                           # Default: udp
+                                                           # Possible values: udp, tcp
+      [--start=START]                                      # cloudwatch event cron schedule in UTC to associate subnets to the client vpn
+      [--stop=STOP]                                        # cloudwatch event cron schedule in UTC to disassociate subnets to the client vpn
+      [--saml-arn=SAML_ARN]                                # IAM SAML identity provider arn if using SAML federated authentication
+      [--saml-self-service-arn=SAML_SELF_SERVICE_ARN]      # IAM SAML identity provider arn for the self service portal
+      [--directory-id=DIRECTORY_ID]                        # AWS Directory Service directory id if using Active Directory authentication
+      [--slack-webhook-url=SLACK_WEBHOOK_URL]              # slack webhook url to send notifications from the scheduler and route populator
+      [--auto-limit-increase], [--no-auto-limit-increase]  # automatically request a AWS service quota increase if limits are hit for route entry and authorization rule limits
+                                                           # Default: true
 ```

@@ -285,7 +285,17 @@ module CfnVpn
           ])
         }
 
-        s3_key = CfnVpn::Templates::Lambdas.package_lambda(name: name, bucket: config[:bucket], func: 'auto_route_populator', files: ['auto_route_populator/app.py', 'lib/slack.py', 'auto_route_populator/states.py'])
+        s3_key = CfnVpn::Templates::Lambdas.package_lambda(
+          name: name,
+          bucket: config[:bucket],
+          func: 'auto_route_populator',
+          files: [
+            'auto_route_populator/app.py',
+            'auto_route_populator/quotas.py',
+            'lib/slack.py',
+            'auto_route_populator/states.py'
+          ]
+        )
         
         Lambda_Function(:CfnVpnAutoRoutePopulator) {
           Runtime 'python3.8'
@@ -299,7 +309,8 @@ module CfnVpn
           })
           Environment({
             Variables: {
-              SLACK_URL: config[:slack_webhook_url] || ''
+              SLACK_URL: config[:slack_webhook_url] || '',
+              AUTO_LIMIT_INCREASE: config[:auto_limit_increase]
             }
           })
           Tags([

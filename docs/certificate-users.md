@@ -85,5 +85,5 @@ Modify base2-ciinabox.config.ovpn to include the full location of your extracted
 	echo "key /<path>/user1.key" >> myvpn.config.ovpn
 	echo "cert /<path>/user1.crt" >> myvpn.config.ovpn
 
-Open myvpn.config.ovpn with your favourite openvpn client.
+Open myvpn.config.ovpn with your favorite openvpn client.
 ```
