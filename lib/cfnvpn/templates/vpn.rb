@@ -131,7 +131,7 @@ module CfnVpn
         cidr_routes = config[:routes].select {|route| route.has_key?(:cidr)}
 
         if dns_routes.any?
-          auto_route_populator(name, config[:bucket])
+          auto_route_populator(name, config)
 
           dns_routes.each do |route|
             input = { 
@@ -146,6 +146,8 @@ module CfnVpn
             end
 
             Events_Rule(:"CfnVpnAutoRoutePopulatorEvent#{route[:dns].resource_safe}"[0..255]) {
+              Condition(:EnableSubnetAssociation)
+              DependsOn network_assoc_dependson if network_assoc_dependson.any?
               State 'ENABLED'
               Description "cfnvpn auto route populator schedule for #{route[:dns]}"
               ScheduleExpression "rate(5 minutes)"
@@ -202,7 +204,7 @@ module CfnVpn
         }
 
         if config[:start] || config[:stop]
-          scheduler(name, config[:start], config[:stop], config[:bucket])
+          scheduler(name, config)
           output(:Start, config[:start]) if config[:start]
           output(:Stop, config[:stop]) if config[:stop]
         end
@@ -228,7 +230,7 @@ module CfnVpn
         Output(name) { Value value }
       end
 
-      def auto_route_populator(name, bucket)
+      def auto_route_populator(name, config)
         IAM_Role(:CfnVpnAutoRoutePopulatorRole) {
           AssumeRolePolicyDocument({
             Version: '2012-10-17',
@@ -283,7 +285,7 @@ module CfnVpn
           ])
         }
 
-        s3_key = CfnVpn::Templates::Lambdas.package_lambda(name: name, bucket: bucket, func: 'auto_route_populator', files: ['app.py'])
+        s3_key = CfnVpn::Templates::Lambdas.package_lambda(name: name, bucket: config[:bucket], func: 'auto_route_populator', files: ['auto_route_populator/app.py', 'lib/slack.py', 'auto_route_populator/states.py'])
         
         Lambda_Function(:CfnVpnAutoRoutePopulator) {
           Runtime 'python3.8'
@@ -292,8 +294,13 @@ module CfnVpn
           Handler 'app.handler'
           Timeout 60
           Code({
-            S3Bucket: bucket,
+            S3Bucket: config[:bucket],
             S3Key: s3_key
+          })
+          Environment({
+            Variables: {
+              SLACK_URL: config[:slack_webhook_url] || ''
+            }
           })
           Tags([
             { Key: 'Name', Value: "#{name}-cfnvpn-auto-route-populator" },
@@ -313,7 +320,7 @@ module CfnVpn
         }
       end
 
-      def scheduler(name, start, stop, bucket)
+      def scheduler(name, config)
         IAM_Role(:ClientVpnSchedulerRole) {
           AssumeRolePolicyDocument({
             Version: '2012-10-17',
@@ -363,6 +370,25 @@ module CfnVpn
               }
             },
             {
+              PolicyName: 'route-populator-events',
+              PolicyDocument: {
+                Version: '2012-10-17',
+                Statement: [{
+                  Effect: 'Allow',
+                  Action: [
+                    'events:PutRule',
+                    'events:PutTargets',
+                    'events:DeleteRule',
+                    'events:DescribeRule',
+                    'events:DisableRule',
+                    'events:EnableRule',
+                    'events:RemoveTargets'
+                  ],
+                  Resource: FnSub("arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/#{name}-cfnvpn-CfnVpnAutoRoutePopulator*")
+                }]
+              }
+            },
+            {
               PolicyName: 'logging',
               PolicyDocument: {
                 Version: '2012-10-17',
@@ -386,7 +412,7 @@ module CfnVpn
           ])
         }
 
-        s3_key = CfnVpn::Templates::Lambdas.package_lambda(name: name, bucket: bucket, func: 'scheduler', files: ['app.py'])
+        s3_key = CfnVpn::Templates::Lambdas.package_lambda(name: name, bucket: config[:bucket], func: 'scheduler', files: ['scheduler/app.py', 'lib/slack.py', 'scheduler/states.py'])
 
         Lambda_Function(:ClientVpnSchedulerFunction) {
           Runtime 'python3.8'
@@ -394,8 +420,13 @@ module CfnVpn
           MemorySize '128'
           Handler 'app.handler'
           Timeout 60
+          Environment({
+            Variables: {
+              SLACK_URL: config[:slack_webhook_url] || ''
+            }
+          })
           Code({
-            S3Bucket: bucket,
+            S3Bucket: config[:bucket],
             S3Key: s3_key
           })
           Tags([
@@ -415,11 +446,11 @@ module CfnVpn
           Principal 'events.amazonaws.com'
         }
 
-        if start
+        if config[:start]
           Events_Rule(:ClientVpnSchedulerStart) {
             State 'ENABLED'
             Description "cfnvpn start schedule"
-            ScheduleExpression "cron(#{start})"
+            ScheduleExpression "cron(#{config[:start]})"
             Targets([
               { 
                 Arn: FnGetAtt(:ClientVpnSchedulerFunction, :Arn),
@@ -430,11 +461,11 @@ module CfnVpn
           }
         end
 
-        if stop
+        if config[:stop]
           Events_Rule(:ClientVpnSchedulerStop) {
             State 'ENABLED'
             Description "cfnvpn stop schedule"
-            ScheduleExpression "cron(#{stop})"
+            ScheduleExpression "cron(#{config[:stop]})"
             Targets([
               { 
                 Arn: FnGetAtt(:ClientVpnSchedulerFunction, :Arn),
