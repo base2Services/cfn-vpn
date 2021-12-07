@@ -35,8 +35,8 @@ module CfnVpn::Actions
     class_option :start, type: :string, desc: 'cloudwatch event cron schedule in UTC to associate subnets to the client vpn'
     class_option :stop, type: :string, desc: 'cloudwatch event cron schedule in UTC to disassociate subnets to the client vpn'
 
-    class_option :saml_arn, desc: 'IAM SAML idenditiy providor arn if using SAML federated authentication'
-    class_option :saml_self_service_arn, desc: 'IAM SAML idenditiy providor arn for the self service portal'
+    class_option :saml_arn, desc: 'IAM SAML identity provider arn if using SAML federated authentication'
+    class_option :saml_self_service_arn, desc: 'IAM SAML identity provider arn for the self service portal'
     class_option :directory_id, desc: 'AWS Directory Service directory id if using Active Directory authentication'
 
     class_option :slack_webhook_url, type: :string, desc: 'slack webhook url to send notifications from the scheduler and route populator'

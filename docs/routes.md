@@ -121,14 +121,26 @@ Check out the AWS [docs](https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/
 
 ### Increasing Limits
 
-Routes per Client VPN endpoint
+**Automatic**
+
+cfn-vpn supports automatically creating requests to increase the limits for `Routes per Client VPN endpoint` (by 10) and `Authorization rules per Client VPN endpoint` (by 20).
+
+This functionality is enabled by default but can be disabled by modifying the vpn setting the `--no-auto-limit-increase` flag
 
 ```sh
-aws service-quotas request-service-quota-increase --service-code ec2 --quota-code L-401D78F7 --desired-value 20
+cfn-vpn modify [name] --no-auto-limit-increase
 ```
 
-Authorization rules per Client VPN endpoint
+**Manual**
+
+`Routes per Client VPN endpoint`
 
 ```sh
-aws service-quotas request-service-quota-increase --service-code ec2 --quota-code L-9A1BC94B --desired-value 75
+aws service-quotas request-service-quota-increase --service-code ec2 --quota-code L-401D78F7 --desired-value [value]
+```
+
+`Authorization rules per Client VPN endpoint`
+
+```sh
+aws service-quotas request-service-quota-increase --service-code ec2 --quota-code L-9A1BC94B --desired-value [value]
 ```
