@@ -19,7 +19,7 @@ def quota_request_open(quota_code) -> bool:
     QuotaCode=quota_code
   )
   # Status='PENDING'|'CASE_OPENED'|'APPROVED'|'DENIED'|'CASE_CLOSED'
-  return True in (req['status'] in IN_PROGRESS for req in response['RequestedQuotas'])
+  return any(req['status'] in IN_PROGRESS for req in response['RequestedQuotas'])
 
 def increase_quota(increase_value, quota_code, endpoint) -> str:
   if quota_request_open(quota_code):
