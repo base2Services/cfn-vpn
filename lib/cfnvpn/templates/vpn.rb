@@ -285,7 +285,7 @@ module CfnVpn
           ])
         }
 
-        s3_key = CfnVpn::Templates::Lambdas.package_lambda(name: name, bucket: config[:bucket], func: 'auto_route_populator', files: ['app.py', 'slack.py', 'states.py'])
+        s3_key = CfnVpn::Templates::Lambdas.package_lambda(name: name, bucket: config[:bucket], func: 'auto_route_populator', files: ['auto_route_populator/app.py', 'lib/slack.py', 'auto_route_populator/states.py'])
         
         Lambda_Function(:CfnVpnAutoRoutePopulator) {
           Runtime 'python3.8'
@@ -299,7 +299,7 @@ module CfnVpn
           })
           Environment({
             Variables: {
-              SLACK_URL: config[:slack_webhook_url]
+              SLACK_URL: config[:slack_webhook_url] || ''
             }
           })
           Tags([
@@ -412,7 +412,7 @@ module CfnVpn
           ])
         }
 
-        s3_key = CfnVpn::Templates::Lambdas.package_lambda(name: name, bucket: config[:bucket], func: 'scheduler', files: ['app.py', 'slack.py', 'states.py'])
+        s3_key = CfnVpn::Templates::Lambdas.package_lambda(name: name, bucket: config[:bucket], func: 'scheduler', files: ['scheduler/app.py', 'lib/slack.py', 'scheduler/states.py'])
 
         Lambda_Function(:ClientVpnSchedulerFunction) {
           Runtime 'python3.8'
@@ -422,7 +422,7 @@ module CfnVpn
           Timeout 60
           Environment({
             Variables: {
-              SLACK_URL: config[:slack_webhook_url]
+              SLACK_URL: config[:slack_webhook_url] || ''
             }
           })
           Code({

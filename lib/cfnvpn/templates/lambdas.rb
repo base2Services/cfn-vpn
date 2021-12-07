@@ -17,7 +17,16 @@ module CfnVpn
         FileUtils.mkdir_p(zipfile_path)
         Zip::File.open("#{zipfile_path}/#{zipfile_name}", Zip::File::CREATE) do |zipfile|
           files.each do |file|
-            zipfile.add(file, File.join("#{lambdas_dir}/#{func}", file))
+            file_path = lambdas_dir
+            
+            # this is to allow for shared library methods in a different lambda directory
+            # so the files in the function lambda is in the root of the zip
+            if file.include? func
+              file_path = "#{file_path}/#{func}"
+              file.gsub!("#{func}/", "")
+            end
+
+            zipfile.add(file, File.join(file_path, file))
           end
         end
 

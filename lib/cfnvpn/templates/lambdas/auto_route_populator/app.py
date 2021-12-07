@@ -1,12 +1,14 @@
 import socket
 import boto3
 from botocore.exceptions import ClientError
-from slack import post_event_to_slack
+from lib.slack import Slack
 from states import *
 import logging
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+SLACK_USERNAME = 'CfnVpn Route Table Event'
 
 def delete_route(client, vpn_endpoint, subnet, cidr):
   try:
@@ -106,6 +108,9 @@ def get_rules(client, vpn_endpoint, cidr):
 
 
 def handler(event,context):
+
+  logger.info(f"auto route populator triggered with event : {event}")
+  slack = Slack(username=SLACK_USERNAME)
   
   # DNS lookup on the dns record and return all IPS for the endpoint
   try:
@@ -113,7 +118,7 @@ def handler(event,context):
     logger.info(f"resolved endpoint {event['Record']} to {cidrs}")
   except socket.gaierror as e:
     logger.error(f"failed to resolve record {event['Record']}", exc_info=True)
-    post_event_to_slack(message=f"failed to resolve record {event['Record']}", state=RESOLVE_FAILED, error=e)
+    slack.post_event(message=f"failed to resolve record {event['Record']}", state=RESOLVE_FAILED, error=e)
     return 'KO'
   
   client = boto3.client('ec2')
@@ -125,13 +130,13 @@ def handler(event,context):
 
   if not response['ClientVpnEndpoints']:
     logger.error(f"endpoint not found")
-    post_event_to_slack(message=f"failed create routes for {event['Record']}", state=FAILED, error="endpoint not found")
+    slack.post_event(message=f"failed create routes for {event['Record']}", state=FAILED, error="endpoint not found")
     return 'KO'
 
   endpoint = response['ClientVpnEndpoints'][0]
   if endpoint['Status'] == 'pending-associate':
     logger.error(f"no subnets associated with endpoint")
-    post_event_to_slack(message=f"failed create routes for {event['Record']}", state=FAILED, error="vpn is in a stopped state")
+    slack.post_event(message=f"failed create routes for {event['Record']}", state=FAILED, error="vpn is in a stopped state")
     return 'KO'
 
   routes = get_routes(client, event)
@@ -154,7 +159,7 @@ def handler(event,context):
           continue
         elif e.response['Error']['Code'] == 'ClientVpnRouteLimitExceeded':
           logger.error("vpn route table has reached it's route limit", exc_info=True)
-          post_event_to_slack(
+          slack.post_event(
             message=f"unable to create route {cidr} from {event['Record']}",
             state=ROUTE_LIMIT_EXCEEDED,
             error="vpn route table has reached it's route limit"
@@ -162,7 +167,7 @@ def handler(event,context):
           continue
         elif e.response['Error']['Code'] == 'ClientVpnAuthorizationRuleLimitExceeded':
           logger.error("vpn has reached it's authorization rule limit", exc_info=True)
-          post_event_to_slack(
+          slack.post_event(
             message=f"unable to authorization rule for route {cidr} from {event['Record']}",
             state=AUTH_RULE_LIMIT_EXCEEDED,
             error="vpn has reached it's authorization rule limit"
@@ -170,7 +175,7 @@ def handler(event,context):
           continue
         elif e.response['Error']['Code'] == 'ConcurrentMutationLimitExceeded':
           logger.error("authorization rule modifications are being rated limited", exc_info=True)
-          post_event_to_slack(
+          slack.post_event(
             message=f"unable to authorization rule for route {cidr} from {event['Record']}", 
             state=RATE_LIMIT_EXCEEDED,
             error="authorization rule modifications are being rated limited"
@@ -178,7 +183,7 @@ def handler(event,context):
           continue
         elif e.response['Error']['Code'] == 'InvalidClientVpnActiveAssociationNotFound':
           logger.error("no subnets are associated with the vpn", exc_info=True)
-          post_event_to_slack(
+          slack.post_event(
             message=f"unable to create the route {cidr} from {event['Record']}", 
             state=SUBNET_NOT_ASSOCIATED,
             error="no subnets are associated with the vpn"
@@ -186,7 +191,7 @@ def handler(event,context):
           continue
         raise e
 
-      post_event_to_slack(message=f"added new route {cidr} for DNS entry {event['Record']}", state=NEW_ROUTE)
+      slack.post_event(message=f"added new route {cidr} for DNS entry {event['Record']}", state=NEW_ROUTE)
         
     # if the route already exists
     else:
@@ -232,6 +237,6 @@ def handler(event,context):
     logger.info(f"removing expired route {route['DestinationCidr']} for endpoint {event['Record']}")
     revoke_route_auth(client, event, route['DestinationCidr'])
     delete_route(client, event['ClientVpnEndpointId'], route['TargetSubnet'], route['DestinationCidr'])
-    post_event_to_slack(message=f"removed expired route {route['DestinationCidr']} for endpoint {event['Record']}", state=EXPIRED_ROUTE)
+    slack.post_event(message=f"removed expired route {route['DestinationCidr']} for endpoint {event['Record']}", state=EXPIRED_ROUTE)
   
   return 'OK'

@@ -1,14 +1,17 @@
 import boto3
 import logging
-from slack import post_event_to_slack
+from lib.slack import Slack
 from states import *
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+SLACK_USERNAME = 'CfnVpn Scheduler'
+
 def handler(event, context):
 
   logger.info(f"updating cfn-vpn stack {event['StackName']} parameter AssociateSubnets with value {event['AssociateSubnets']}")
+  slack = Slack(username=SLACK_USERNAME)
 
   try:
     if event['AssociateSubnets'] == 'false':
@@ -38,14 +41,14 @@ def handler(event, context):
   except Exception as ex:
     logger.error(f"failed to start/stop client vpn", exc_info=True)
     if event['AssociateSubnets'] == 'true':
-      post_event_to_slack(message=f"failed to assocated subnets with the client vpn", state=START_FAILED, error=ex)
+      slack.post_event(message=f"failed to assocated subnets with the client vpn", state=START_FAILED, error=ex)
     else:
-      post_event_to_slack(message=f"failed to dissassocated subnets with the client vpn", state=STOP_FAILED, error=ex)
+      slack.post_event(message=f"failed to dissassocated subnets with the client vpn", state=STOP_FAILED, error=ex)
     return 'KO'
 
   if event['AssociateSubnets'] == 'true':
-    post_event_to_slack(message=f"successfully assocated subnets with the client vpn", state=START_IN_PROGRESS)
+    slack.post_event(message=f"successfully assocated subnets with the client vpn", state=START_IN_PROGRESS)
   else:
-    post_event_to_slack(message=f"successfully dissassocated subnets with the client vpn", state=STOP_IN_PROGRESS)
+    slack.post_event(message=f"successfully dissassocated subnets with the client vpn", state=STOP_IN_PROGRESS)
 
   return 'OK'
