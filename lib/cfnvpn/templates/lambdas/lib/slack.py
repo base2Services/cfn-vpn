@@ -23,7 +23,7 @@ class Slack:
         error: str
             error message to add to the message
         support_case: str
-            displays a aws console link to the suport case in the message
+            displays a aws console link to the support case in the message
         """
 
         if not self.slack_url.startswith('https://hooks.slack.com'):
