@@ -99,7 +99,7 @@ cfn-vpn routes [name] --params-yaml cfnvpn.[name].yaml
 
 ## Route Limits
 
-Client VPN have a number or service limits associated with it some of which can be increased and may need to be increased by default.
+Client VPN have a number of service limits associated with it some of which can be increased and may need to be increased by default.
 
 | Name | Default | Adjustable | 
 | --- | --- | --- | 

@@ -41,14 +41,14 @@ def handler(event, context):
   except Exception as ex:
     logger.error(f"failed to start/stop client vpn", exc_info=True)
     if event['AssociateSubnets'] == 'true':
-      slack.post_event(message=f"failed to assocated subnets with the client vpn", state=START_FAILED, error=ex)
+      slack.post_event(message=f"failed to assocate subnets with the client vpn", state=START_FAILED, error=ex)
     else:
-      slack.post_event(message=f"failed to dissassocated subnets with the client vpn", state=STOP_FAILED, error=ex)
+      slack.post_event(message=f"failed to disassociate subnets with the client vpn", state=STOP_FAILED, error=ex)
     return 'KO'
 
   if event['AssociateSubnets'] == 'true':
     slack.post_event(message=f"successfully assocated subnets with the client vpn", state=START_IN_PROGRESS)
   else:
-    slack.post_event(message=f"successfully dissassocated subnets with the client vpn", state=STOP_IN_PROGRESS)
+    slack.post_event(message=f"successfully disassociated subnets with the client vpn", state=STOP_IN_PROGRESS)
 
   return 'OK'

@@ -158,25 +158,25 @@ def handler(event,context):
           logger.error(f"route for CIDR {cidr} already exists with a different endpoint")
           continue
         elif e.response['Error']['Code'] == 'ClientVpnRouteLimitExceeded':
-          logger.error("vpn route table has reached it's route limit", exc_info=True)
+          logger.error("vpn route table has reached the route limit", exc_info=True)
           slack.post_event(
             message=f"unable to create route {cidr} from {event['Record']}",
             state=ROUTE_LIMIT_EXCEEDED,
-            error="vpn route table has reached it's route limit"
+            error="vpn route table has reached the route limit"
           )
           continue
         elif e.response['Error']['Code'] == 'ClientVpnAuthorizationRuleLimitExceeded':
-          logger.error("vpn has reached it's authorization rule limit", exc_info=True)
+          logger.error("vpn has reached the authorization rule limit", exc_info=True)
           slack.post_event(
-            message=f"unable to authorization rule for route {cidr} from {event['Record']}",
+            message=f"unable add to authorization rule for route {cidr} from {event['Record']}",
             state=AUTH_RULE_LIMIT_EXCEEDED,
-            error="vpn has reached it's authorization rule limit"
+            error="vpn has reached the authorization rule limit"
           )
           continue
         elif e.response['Error']['Code'] == 'ConcurrentMutationLimitExceeded':
           logger.error("authorization rule modifications are being rated limited", exc_info=True)
           slack.post_event(
-            message=f"unable to authorization rule for route {cidr} from {event['Record']}", 
+            message=f"unable to add authorization rule for route {cidr} from {event['Record']}", 
             state=RATE_LIMIT_EXCEEDED,
             error="authorization rule modifications are being rated limited"
           )
