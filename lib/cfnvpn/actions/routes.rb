@@ -14,7 +14,7 @@ module CfnVpn::Actions
 
     class_option :cidr, desc: 'cidr range'
     class_option :dns, desc: 'dns record to auto lookup ip'
-    class_option :subnet, desc: 'the target vpc subnet to route through, if none is supplied the default subnet is used'
+    class_option :subnets, type: :array, desc: 'target vpc subnets to route through, if none is supplied the default subnets are used'
     class_option :desc, desc: 'description of the route'
 
     class_option :groups, type: :array, desc: 'override all authorised groups on thr route'
@@ -83,15 +83,15 @@ module CfnVpn::Actions
           CfnVpn::Log.logger.warn "description for this route cannot be updated in place. To alter delete the route and add with the new description"
         end
 
-        if @options[:subnet]
-          CfnVpn::Log.logger.warn "the target subnet for this route cannot be updated in place. To alter delete the route and add with the new target subnet"
+        if @options[:subnets]
+          CfnVpn::Log.logger.warn "the target subnets for this route cannot be updated in place. To alter delete the route and add with the new target subnet"
         end
       elsif !@route && @options[:cidr]
         CfnVpn::Log.logger.info "adding new route for #{@options[:cidr]}"
         @config[:routes] << {
           cidr: @options[:cidr],
           desc: @options.fetch(:desc, ""),
-          subnet: @options.fetch(:subnet, @config[:subnet_ids].first),
+          subnets: @options.fetch(:subnets, @config[:subnet_ids]),
           groups: @options.fetch(:groups, []) + @options.fetch(:add_groups, [])
         }
       elsif !@route && @options[:dns]
@@ -99,7 +99,7 @@ module CfnVpn::Actions
         @config[:routes] << {
           dns: @options[:dns],
           desc: @options.fetch(:desc, ""),
-          subnet: @options.fetch(:subnet, @config[:subnet_ids].first),
+          subnets: @options.fetch(:subnets, @config[:subnet_ids]),
           groups: @options.fetch(:groups, []) + @options.fetch(:add_groups, [])
         }
       else
@@ -163,27 +163,31 @@ module CfnVpn::Actions
       end
     end
 
+    def get_routes
+      @vpn = CfnVpn::ClientVpn.new(@name, @options['region'])
+    end
+
     def cleanup_dns_routes
-      @vpn = CfnVpn::ClientVpn.new(@name,@options['region'])
       unless @dns_route_cleanup.nil?
-        routes = @vpn.get_routes()
         CfnVpn::Log.logger.info("Cleaning up expired routes for #{@dns_route_cleanup}")
-        expired_routes = routes.select {|route| route.description.include?(@dns_route_cleanup) }
+        expired_routes = @vpn.get_routes(@dns_route_cleanup)
         expired_routes.each do |route|
+          CfnVpn::Log.logger.info("Removing expired route #{route.destination_cidr} for target subnet #{route.target_subnet}")
           @vpn.delete_route(route.destination_cidr, route.target_subnet)
-          @vpn.revoke_auth(route.destination_cidr)
+        end
+
+        expired_rules = @vpn.get_auth_rules(@dns_route_cleanup)
+        expired_rules.each do |rule|
+          CfnVpn::Log.logger.info("Removing expired auth rule for route #{route.destination_cidr}")
+          @vpn.revoke_auth(rule.destination_cidr)
         end
       end
     end
 
-    def get_routes
-      @endpoint = @vpn.get_endpoint_id()
-      @routes = @vpn.get_routes()
-    end
-
     def display_routes
-      rows = @routes.collect do |s|
-        groups = @vpn.get_groups_for_route(@endpoint, s.destination_cidr)
+      routes = @vpn.get_routes()
+      rows = routes.collect do |s|
+        groups = @vpn.get_groups_for_route(s.destination_cidr)
         [ s.destination_cidr, s.description, s.status.code, s.target_subnet, s.type, s.origin, (!groups.join("").empty? ? groups.join(' ') : 'AllowAll') ]
       end
       table = Terminal::Table.new(

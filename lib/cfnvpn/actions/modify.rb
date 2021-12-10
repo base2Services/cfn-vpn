@@ -164,8 +164,7 @@ module CfnVpn::Actions
 
     def finish
       vpn = CfnVpn::ClientVpn.new(@name,@options['region'])
-      @endpoint_id = vpn.get_endpoint_id()
-      CfnVpn::Log.logger.info "Client VPN #{@endpoint_id} modified."
+      CfnVpn::Log.logger.info "Client VPN #{vpn.endpoint_id} modified."
     end
 
   end

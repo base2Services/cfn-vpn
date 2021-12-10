@@ -24,7 +24,6 @@ cfn-vpn modify [name] --slack-webhook-url "https://hooks.slack.com/services/T000
 - `ROUTE_LIMIT_EXCEEDED`: no new routes can be added to the route table due to AWS route table limit
 - `AUTH_RULE_LIMIT_EXCEEDED`: no new authorization rules can be added to the rule list due to AWS auth rule limit
 - `RESOLVE_FAILED`: failed to resolve the provided dns entry
-- `RATE_LIMIT_EXCEEDED`: concurrent modifications of the route table is being rated limited
 - `SUBNET_NOT_ASSOCIATED`: no subnets are associated with the Client VPN
 - `QUOTA_INCREASE_REQUEST`: automatic quota increase made 
 

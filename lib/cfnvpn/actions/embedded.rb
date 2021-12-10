@@ -50,11 +50,10 @@ module CfnVpn::Actions
 
     def download_config
       vpn = CfnVpn::ClientVpn.new(@name,@options['region'])
-      @endpoint_id = vpn.get_endpoint_id()
-      CfnVpn::Log.logger.debug "downloading client config for #{@endpoint_id}"
-      @config = vpn.get_config(@endpoint_id)
+      CfnVpn::Log.logger.debug "downloading client config for #{vpn.endpoint_id}"
+      @config = vpn.get_config()
       string = (0...8).map { (65 + rand(26)).chr.downcase }.join
-      @config.sub!(@endpoint_id, "#{string}.#{@endpoint_id}")
+      @config.sub!(vpn.endpoint_id, "#{string}.#{vpn.endpoint_id}")
     end
 
     def add_routes

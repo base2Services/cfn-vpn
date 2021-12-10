@@ -42,9 +42,8 @@ module CfnVpn::Actions
 
     def apply_rekocation_list
       vpn = CfnVpn::ClientVpn.new(@name,@options['region'])
-      endpoint_id = vpn.get_endpoint_id()
-      vpn.put_revoke_list(endpoint_id,"#{@cert_dir}/crl.pem")
-      CfnVpn::Log.logger.info("revoked client #{@options['client_cn']} from #{endpoint_id}")
+      vpn.put_revoke_list("#{@cert_dir}/crl.pem")
+      CfnVpn::Log.logger.info("revoked client #{@options['client_cn']} from #{vpn.endpoint_id}")
     end
 
   end
