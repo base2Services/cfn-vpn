@@ -143,8 +143,7 @@ module CfnVpn::Actions
 
     def finish
       vpn = CfnVpn::ClientVpn.new(@name,@options['region'])
-      @endpoint_id = vpn.get_endpoint_id()
-      CfnVpn::Log.logger.info "Client VPN #{@endpoint_id} created. Run `cfn-vpn config #{@name}` to setup the client config"
+      CfnVpn::Log.logger.info "Client VPN #{vpn.endpoint_id} created. Run `cfn-vpn config #{@name}` to setup the client config"
     end
 
   end

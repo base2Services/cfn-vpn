@@ -61,13 +61,9 @@ module CfnVpn::Actions
       end
     end
 
-    def get_endpoint
-      @vpn = CfnVpn::ClientVpn.new(@name,@options['region'])
-      @endpoint_id = @vpn.get_endpoint_id()
-    end
-
     def associations
-      associations = @vpn.get_associations(@endpoint_id)
+      vpn = CfnVpn::ClientVpn.new(@name,@options['region'])
+      associations = vpn.get_associations()
       table = Terminal::Table.new(
         :headings => ['ID', 'Subnet', 'Status', 'CIDR', 'AZ', 'Groups'],
         :rows => associations.map {|ass| ass.values})

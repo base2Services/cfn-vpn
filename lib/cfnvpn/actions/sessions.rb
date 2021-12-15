@@ -29,20 +29,19 @@ module CfnVpn::Actions
       @build_dir = "#{CfnVpn.cfnvpn_path}/#{@name}"
     end
 
-    def get_endpoint
+    def setup
       @vpn = CfnVpn::ClientVpn.new(@name,@options['region'])
-      @endpoint_id = @vpn.get_endpoint_id()
     end
 
     def kill_session
       if !@options['kill'].nil?
-        sessions = @vpn.get_sessions(@endpoint_id)
+        sessions = @vpn.get_sessions()
         session = sessions.select { |s| s if s.connection_id  == @options['kill'] }.first
         if session.any? && session.status.code == "active"
           terminate = yes? "Terminate connection #{@options['kill']} for #{session.common_name}?", :yellow
           if terminate
             CfnVpn::Log.logger.info "Terminating connection #{@options['kill']} for #{session.common_name}"
-            @vpn.kill_session(@endpoint_id,@options['kill'])
+            @vpn.kill_session(@options['kill'])
           end
         else
           CfnVpn::Log.logger.error "Connection id #{@options['kill']} doesn't exist or is not active"
@@ -51,7 +50,7 @@ module CfnVpn::Actions
     end
 
     def display_sessions
-      sessions = @vpn.get_sessions(@endpoint_id)
+      sessions = @vpn.get_sessions()
       rows = sessions.collect do |s|
         [ s.common_name, s.connection_established_time, s.status.code, s.client_ip, s.connection_id, s.ingress_bytes, s.egress_bytes ]
       end

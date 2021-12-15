@@ -134,10 +134,19 @@ module CfnVpn
           auto_route_populator(name, config)
 
           dns_routes.each do |route|
+            # to aide in the migration from single to HA routes if the vpn is HA
+            if route[:subnets]
+              target_subnets = route[:subnets]
+            elsif config[:subnet_ids].include?(route[:subnet])
+              target_subnets = config[:subnet_ids]
+            else
+              target_subnets = [*route[:subnet]]
+            end
+
             input = { 
               Record: route[:dns],
               ClientVpnEndpointId: "${ClientVpnEndpoint}",
-              TargetSubnet: route[:subnet],
+              TargetSubnets: target_subnets,
               Description: route[:desc]
             }
             
@@ -164,12 +173,23 @@ module CfnVpn
 
         if cidr_routes.any?
           cidr_routes.each do |route|
-            EC2_ClientVpnRoute(:"#{route[:cidr].resource_safe}VpnRoute") {
-              Description "cfnvpn static route for #{route[:cidr]}. #{route[:desc]}".strip
-              ClientVpnEndpointId Ref(:ClientVpnEndpoint)
-              DestinationCidrBlock route[:cidr]
-              TargetVpcSubnetId route[:subnet]
-            }
+            # to aide in the migration from single to HA routes if the vpn is HA
+            if route[:subnets]
+              target_subnets = route[:subnets]
+            elsif config[:subnet_ids].include?(route[:subnet])
+              target_subnets = config[:subnet_ids]
+            else
+              target_subnets = [*route[:subnet]]
+            end
+
+            target_subnets.each do |subnet|
+              EC2_ClientVpnRoute(:"#{route[:cidr].resource_safe}VpnRouteTo#{subnet.resource_safe}"[0..255]) {
+                Description "cfnvpn static route for #{route[:cidr]}. #{route[:desc]}".strip
+                ClientVpnEndpointId Ref(:ClientVpnEndpoint)
+                DestinationCidrBlock route[:cidr]
+                TargetVpcSubnetId subnet
+              }
+            end
 
             if route[:groups].any?
               route[:groups].each do |group|

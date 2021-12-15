@@ -26,7 +26,7 @@ def delete_route(client, vpn_endpoint, subnet, cidr):
       raise e
 
   
-def create_route(client, event, cidr):
+def create_route(client, event, cidr, target_subnet):
   description = f"cfnvpn auto generated route for endpoint {event['Record']}."
   if event['Description']:
     description += f" {event['Description']}"
@@ -34,7 +34,7 @@ def create_route(client, event, cidr):
   client.create_client_vpn_route(
     ClientVpnEndpointId=event['ClientVpnEndpointId'],
     DestinationCidrBlock=cidr,
-    TargetVpcSubnetId=event['TargetSubnet'],
+    TargetVpcSubnetId=target_subnet,
     Description=description
   )
 
@@ -81,7 +81,8 @@ def authorize_route(client, event, cidr, group = None):
 
 
 def get_routes(client, event):
-  response = client.describe_client_vpn_routes(
+  paginator = client.get_paginator('describe_client_vpn_routes')
+  response_iterator = paginator.paginate(
     ClientVpnEndpointId=event['ClientVpnEndpointId'],
     Filters=[
       {
@@ -90,23 +91,40 @@ def get_routes(client, event):
       }
     ]
   )
-  
-  routes = [route for route in response['Routes'] if event['Record'] in route['Description']]
-  logger.info(f"found {len(routes)} existing routes for {event['Record']}")
-  return routes
+ 
+  return [route for page in response_iterator 
+            for route in page['Routes'] 
+            if event['Record'] in route['Description']]
 
 
-def get_rules(client, vpn_endpoint, cidr):
-  response = client.describe_client_vpn_authorization_rules(
-    ClientVpnEndpointId=vpn_endpoint,
-    Filters=[
-        {
-            'Name': 'destination-cidr',
-            'Values': [cidr]
-        }
-    ]
+def get_auth_rules(client, event):
+  paginator = client.get_paginator('describe_client_vpn_authorization_rules')
+  response_iterator = paginator.paginate(
+    ClientVpnEndpointId=event['ClientVpnEndpointId']
   )
-  return response['AuthorizationRules']
+
+  return [rule for page in response_iterator 
+            for rule in page['AuthorizationRules']
+            if event['Record'] in rule['Description']]
+
+
+def expired_auth_rules(auth_rules, cidrs, groups):
+  for rule in auth_rules:
+    # if there is a rule for the record with an old cidr
+    if rule['DestinationCidr'] not in cidrs:
+      yield rule
+    # if there is a rule for a group that is no longer in the event
+    if groups and rule['GroupId'] not in groups:
+      yield rule
+    # if there is a rule for allow all but groups are in the event
+    if groups and rule['AccessAll']:
+      yield rule
+
+
+def expired_routes(routes, cidrs):
+  for route in routes:
+    if route['DestinationCidr'] not in cidrs:
+      yield route
 
 
 def handler(event,context):
@@ -142,37 +160,65 @@ def handler(event,context):
     return 'KO'
 
   routes = get_routes(client, event)
+  auth_rules = get_auth_rules(client, event)
 
   auto_limit_increase = os.environ.get('AUTO_LIMIT_INCREASE')
   route_limit_increase_required = False
   auth_rules_limit_increase_required = False
 
   for cidr in cidrs:
-    route = next((route for route in routes if route['DestinationCidr'] == cidr), None)
-    
-    # if there are no existing routes for the endpoint cidr create a new route
-    if route is None:
-      try:
-        create_route(client, event, cidr)
-        if 'Groups' in event:
-          for group in event['Groups']:
-            authorize_route(client, event, cidr, group)
+    # create route if doesn't exist
+    for subnet in event['TargetSubnets']:
+      if not any(route['DestinationCidr'] == cidr and route['TargetSubnet'] == subnet for route in routes):
+        try:
+          create_route(client, event, cidr, subnet)
+        except ClientError as e:
+          if e.response['Error']['Code'] == 'ClientVpnRouteLimitExceeded':
+            route_limit_increase_required = True
+            logger.error("vpn route table has reached the route limit", exc_info=True)
+            slack.post_event(
+              message=f"unable to create route {cidr} from {event['Record']}",
+              state=ROUTE_LIMIT_EXCEEDED,
+              error="vpn route table has reached the route limit"
+            )
+          elif e.response['Error']['Code'] == 'InvalidClientVpnActiveAssociationNotFound':
+            logger.warn("no subnets are associated with the vpn", exc_info=True)
+            slack.post_event(
+              message=f"unable to create the route {cidr} from {event['Record']}", 
+              state=SUBNET_NOT_ASSOCIATED,
+              error="no subnets are associated with the vpn"
+            )
+          else:
+            logger.error("encountered a unexpected client error when creating a route", exc_info=True)
         else:
-          authorize_route(client, event, cidr)
-      except ClientError as e:
-        if e.response['Error']['Code'] == 'InvalidClientVpnDuplicateRoute':
-          logger.error(f"route for CIDR {cidr} already exists with a different endpoint")
-          continue
-        elif e.response['Error']['Code'] == 'ClientVpnRouteLimitExceeded':
-          route_limit_increase_required = True
-          logger.error("vpn route table has reached the route limit", exc_info=True)
           slack.post_event(
-            message=f"unable to create route {cidr} from {event['Record']}",
-            state=ROUTE_LIMIT_EXCEEDED,
-            error="vpn route table has reached the route limit"
+            message=f"created new route {cidr} ({event['Record']}) to target subnet {subnet}",
+            state=NEW_ROUTE
           )
-          continue
-        elif e.response['Error']['Code'] == 'ClientVpnAuthorizationRuleLimitExceeded':
+    
+    # remove route if target subnet has changed
+    for route in routes:
+      if route['DestinationCidr'] == cidr and route['TargetSubnet'] not in event['TargetSubnets']:
+        delete_route(client, event['ClientVpnEndpointId'], route['TargetSubnet'], cidr)
+
+    # collect all rules that matches the current cidr
+    cidr_auth_rules = [rule for rule in auth_rules if rule['DestinationCidr'] == cidr]
+
+    try:
+      # create rules for newly added groups
+      if 'Groups' in event:
+        existing_groups = list(set(rule['GroupId'] for rule in cidr_auth_rules))
+        new_groups = [group for group in event['Groups'] if group not in existing_groups]
+
+        for group in new_groups:
+          authorize_route(client, event, cidr, group)
+
+      # create an allow all rule
+      elif 'Groups' not in event and not cidr_auth_rules:
+        authorize_route(client, event, cidr)
+
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'ClientVpnAuthorizationRuleLimitExceeded':
           auth_rules_limit_increase_required = True
           logger.error("vpn has reached the authorization rule limit", exc_info=True)
           slack.post_event(
@@ -181,62 +227,10 @@ def handler(event,context):
             error="vpn has reached the authorization rule limit"
           )
           continue
-        elif e.response['Error']['Code'] == 'ConcurrentMutationLimitExceeded':
-          logger.error("authorization rule modifications are being rated limited", exc_info=True)
-          slack.post_event(
-            message=f"unable to add authorization rule for route {cidr} from {event['Record']}", 
-            state=RATE_LIMIT_EXCEEDED,
-            error="authorization rule modifications are being rated limited"
-          )
-          continue
-        elif e.response['Error']['Code'] == 'InvalidClientVpnActiveAssociationNotFound':
-          logger.error("no subnets are associated with the vpn", exc_info=True)
-          slack.post_event(
-            message=f"unable to create the route {cidr} from {event['Record']}", 
-            state=SUBNET_NOT_ASSOCIATED,
-            error="no subnets are associated with the vpn"
-          )
-          continue
-        raise e
+        else:
+            logger.error("encountered a unexpected client error when creating an auth rule", exc_info=True)
 
-      slack.post_event(message=f"added new route {cidr} for DNS entry {event['Record']}", state=NEW_ROUTE)
-        
-    # if the route already exists
-    else:
-      
-      logger.info(f"route for cidr {cidr} is already in place")
-      
-      # if the target subnet has changed in the payload, recreate the routes to use the new subnet
-      if route['TargetSubnet'] != event['TargetSubnet']:
-        logger.info(f"target subnet for route for {cidr} has changed, recreating the route")
-        delete_route(client, event['ClientVpnEndpointId'], route['TargetSubnet'], cidr)
-        create_route(client, event, cidr)
-      
-      logger.info(f"checking authorization rules for the route")
-      
-      # check the rules match the payload
-      rules = get_rules(client, event['ClientVpnEndpointId'], cidr)
-      existing_groups = [rule['GroupId'] for rule in rules]
-      if 'Groups' in event:
-        # remove expired rules not defined in the payload anymore
-        expired_rules = [rule for rule in rules if rule['GroupId'] not in event['Groups']]
-        for rule in expired_rules:
-          logger.info(f"removing expired authorization rule for group {rule['GroupId']} for route {cidr}")
-          revoke_route_auth(client, event, cidr, rule['GroupId'])
-        # add new rules defined in the payload
-        new_rules =  [group for group in event['Groups'] if group not in existing_groups]
-        for group in new_rules:
-          logger.info(f"creating new authorization rule for group {rule['GroupId']} for route {cidr}")
-          authorize_route(client, event, cidr, group)
-      else:
-        # if amount of rules for the cidr is greater than 1 when no groups are specified in the payload 
-        # we'll assume that all groups have been removed from the payload so we'll remove all existing rules and add a rule for allow all 
-        if len(rules) > 1:
-          logger.info(f"creating an allow all rule for route {cidr}")
-          revoke_route_auth(client, event, cidr)
-          authorize_route(client, event, cidr)
-          
-  # request limit increase
+  # request route limit increase
   if route_limit_increase_required and auto_limit_increase:
     case_id = increase_quota(10, ROUTE_TABLE_QUOTA_CODE, event['ClientVpnEndpointId'])
     if case_id is not None:
@@ -244,18 +238,22 @@ def handler(event,context):
     else:
       logger.info(f"routes per vpn service quota increase request pending")
 
+  # request auth rule limit increase
   if auth_rules_limit_increase_required and auto_limit_increase:
     case_id = increase_quota(20, AUTH_RULE_TABLE_QUOTA_CODE, event['ClientVpnEndpointId'])
     if case_id is not None:
       slack.post_event(message=f"requested an increase for the authorization rules per vpn service quota", state=QUOTA_INCREASE_REQUEST, support_case=case_id)
     else:
       logger.info(f"authorization rules per vpn service quota increase request pending")
-  
-  # clean up any expired routes when the ips for an endpoint change
-  expired_routes = [route for route in routes if route['DestinationCidr'] not in cidrs]
-  for route in expired_routes:
-    logger.info(f"removing expired route {route['DestinationCidr']} for endpoint {event['Record']}")
+
+  # remove expired auth rules
+  for rule in expired_auth_rules(auth_rules, cidrs, event.get('Groups', [])):
+    logger.info(f"removing expired auth rule {rule['DestinationCidr']} for endpoint {event['Record']}")
     revoke_route_auth(client, event, route['DestinationCidr'])
+
+  # remove expired routes
+  for route in expired_routes(routes, cidrs):
+    logger.info(f"removing expired route {route['DestinationCidr']} for endpoint {event['Record']}")
     delete_route(client, event['ClientVpnEndpointId'], route['TargetSubnet'], route['DestinationCidr'])
     slack.post_event(message=f"removed expired route {route['DestinationCidr']} for endpoint {event['Record']}", state=EXPIRED_ROUTE)
   
