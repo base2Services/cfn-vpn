@@ -94,7 +94,7 @@ def get_routes(client, event):
  
   return [route for page in response_iterator 
             for route in page['Routes'] 
-            if event['Record'] in route['Description']]
+            if 'Description' in route and event['Record'] in route['Description']]
 
 
 def get_auth_rules(client, event):
@@ -105,7 +105,7 @@ def get_auth_rules(client, event):
 
   return [rule for page in response_iterator 
             for rule in page['AuthorizationRules']
-            if event['Record'] in rule['Description']]
+            if 'Description' in rule and event['Record'] in rule['Description']]
 
 
 def expired_auth_rules(auth_rules, cidrs, groups):

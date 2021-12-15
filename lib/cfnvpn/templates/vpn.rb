@@ -330,7 +330,7 @@ module CfnVpn
           Environment({
             Variables: {
               SLACK_URL: config[:slack_webhook_url] || '',
-              AUTO_LIMIT_INCREASE: config[:auto_limit_increase]
+              AUTO_LIMIT_INCREASE: config[:auto_limit_increase] || true
             }
           })
           Tags([
