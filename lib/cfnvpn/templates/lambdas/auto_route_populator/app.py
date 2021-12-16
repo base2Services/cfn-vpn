@@ -249,7 +249,7 @@ def handler(event,context):
   # remove expired auth rules
   for rule in expired_auth_rules(auth_rules, cidrs, event.get('Groups', [])):
     logger.info(f"removing expired auth rule {rule['DestinationCidr']} for endpoint {event['Record']}")
-    revoke_route_auth(client, event, route['DestinationCidr'])
+    revoke_route_auth(client, event, rule['DestinationCidr'])
 
   # remove expired routes
   for route in expired_routes(routes, cidrs):
