@@ -163,7 +163,7 @@ module CfnVpn
               Targets([
                 { 
                   Arn: FnGetAtt(:CfnVpnAutoRoutePopulator, :Arn),
-                  Id: "cfnvpnautoroutepopulator#{route[:dns].event_id_safe}",
+                  Id: "auto-route-populator",
                   Input: FnSub(input.to_json)
                 }
               ])
@@ -296,6 +296,31 @@ module CfnVpn
                   ],
                   Resource: '*'
                 }]
+              }
+            },
+            {
+              PolicyName: 'vpn-quotas',
+              PolicyDocument: {
+                Version: '2012-10-17',
+                Statement: [
+                  {
+                    Effect: 'Allow',
+                    Action: [
+                      'servicequotas:ListRequestedServiceQuotaChangeHistoryByQuota',
+                    ],
+                    Resource: '*'
+                  },
+                  {
+                    Effect: 'Allow',
+                    Action: [
+                      'servicequotas:RequestServiceQuotaIncrease'
+                    ],
+                    Resource: [
+                      FnSub('arn:aws:servicequotas:${AWS::Region}:${AWS::AccountId}:ec2/L-401D78F7'),
+                      FnSub('arn:aws:servicequotas:${AWS::Region}:${AWS::AccountId}:ec2/L-9A1BC94B')
+                    ]
+                  }
+                ]
               }
             }
           ])
