@@ -4,48 +4,124 @@ Management of the VPN routes can be altered using the `routes` command or by usi
 
 **Note:** The default route via subnet association cannot be modified through this command. Use the `modify` command to alter the subnet associations.
 
-CfnVpn can create static routes for CIDRs as well as dynamically lookup IPs for dns endpoints and continue to monitor and update the routes if the IPs change.
-
-```sh
-cfn-vpn help routes
-```
-
-## Dynamic DNS Routes
-
-Dynamic DNS routes takes a dns endpoint and will query the record every 5 minutes to see if the IPs have changed and update the routes.
-
-### Add New
-
-to add a new route run the routes command along with the `--dns` option
-
-```sh
-cfn-vpn routes [name] --dns example.com
-```
-
-### Delete
-
-to delete a route run the routes command along with the `--dns` option of the route to delete and the delete option
-
-```sh
-cfn-vpn routes [name] --dns example.com --delete
-```
+There are 3 different types of routes, [Static](#Static CIDR Routes), [DNS Lookup](#DNS Lookup Routes) and [Cloud](#Cloud Routes).
 
 ## Static CIDR Routes
 
-### Add New
+Static routes create a static entry in the cfnvpn route table with the CIDR provided.
 
-to add a new route run the routes command along with the `--cidr` option
+#### CLI Commands
+
+new route run the routes command along with the `--cidr` option
 
 ```sh
 cfn-vpn routes [name] --cidr 10.151.0.0/16
 ```
 
-### Delete
-
-to delete a route run the routes command along with the `--cidr` option of the route to delete and the delete option
+delete a route run the routes command along with the `--cidr` option of the route to delete and the delete option
 
 ```sh
 cfn-vpn routes [name] --cidr 10.151.0.0/16 --delete
+```
+
+#### YAML Config
+
+```yaml
+routes:
+- cidr: 10.151.0.0/16
+  desc: route to dev peered vpc
+  schedule: rate(5 minutes)
+  groups:
+  - devs
+  - ops
+```
+
+## DNS Lookup Routes
+
+Dynamic DNS routes takes a dns endpoint and will query the record every 5 minutes to see if the IPs have changed and update the routes in the vpn route table.
+
+#### CLI Commands
+
+new route run the routes command along with the `--dns` option
+
+```sh
+cfn-vpn routes [name] --dns example.com
+```
+
+delete a route run the routes command along with the `--dns` option of the route to delete and the delete option
+
+```sh
+cfn-vpn routes [name] --dns example.com --delete
+```
+
+#### YAML Config
+
+```yaml
+routes:
+- dns: example.com
+  desc: my dev alb
+  schedule: rate(10 minutes)
+  groups:
+  - dev
+```
+
+## Cloud Routes
+
+Automatically lookup and create routes to push cloud provider IP ranges through the VPN. Cloud routes can only be configured through the yaml config.
+
+Supported clouds:
+- [AWS](#AWS)
+
+### AWS
+
+Using AWS published [IP address ranges](https://docs.aws.amazon.com/general/latest/gr/aws-ip-ranges.html) cfn-vpn can lookup and add the CIDR ranges published the the vpn route table.
+
+The list can be filtered by AWS `region` and `service`.
+
+AWS services that can be used to filter the address ranges. **Note:** not all regions contain all services.
+
+```
+API_GATEWAY
+EBS
+EC2_INSTANCE_CONNECT
+CHIME_VOICECONNECTOR
+CHIME_MEETINGS
+CODEBUILD
+CLOUDFRONT
+ROUTE53_HEALTHCHECKS_PUBLISHING
+AMAZON_APPFLOW
+S3
+CLOUD9
+ROUTE53
+AMAZON
+KINESIS_VIDEO_STREAMS
+ROUTE53_HEALTHCHECKS
+GLOBALACCELERATOR
+WORKSPACES_GATEWAYS
+CLOUDFRONT_ORIGIN_FACING
+EC2
+DYNAMODB
+ROUTE53_RESOLVER
+AMAZON_CONNECT
+```
+
+**Warning:** AWS publish 100's of IP address ranges and with Client VPN soft limit of 10 routes per vpn endpoint you will hit the limit without filtering the published ranges.
+
+#### YAML Config
+
+```yaml
+routes:
+- cloud: aws
+  schedule: rate(1 hour)
+  groups:
+  - ops
+  filters:
+  - name: region
+    values:
+    - ap-southeast-2
+  - name: service
+    values:
+    - API_GATEWAY
 ```
 
 ## Manage Authorization Groups
@@ -70,32 +146,6 @@ To delete groups from an existing route use the `--del-groups` options
 cfn-vpn routes [name] [--cidr 10.151.0.0/16] [--dns example.com] --del-groups dev
 ```
 
-## Modify Command
-
-add or modify the `routes:` key in your config yaml file
-
-```yaml
-routes:
-- cidr: 10.151.0.0/16
-  desc: route to dev peered vpc
-  groups:
-  - devs
-  - ops
-- cidr: 10.152.0.0/16
-  desc: route to prod peered vpc
-  groups:
-  - ops
-- dns: example.com
-  desc: my dev alb
-  groups:
-  - dev
-```
-
-run the `modify` command and supply the yaml file to apply the changes
-
-```sh
-cfn-vpn routes [name] --params-yaml cfnvpn.[name].yaml
-```
 
 ## Route Limits
 
