@@ -127,22 +127,23 @@ module CfnVpn
           output(:InternetRoute, config[:internet_route])
         end
 
-        dns_routes = config[:routes].select {|route| route.has_key?(:dns)}
-        cidr_routes = config[:routes].select {|route| route.has_key?(:cidr)}
+        create_auto_route_populator = config[:routes].detect { |route| route.has_key?(:dns) || route.has_key?(:cloud)}
 
-        if dns_routes.any?
+        if create_auto_route_populator
           auto_route_populator(name, config)
+        end
 
-          dns_routes.each do |route|
-            # to aide in the migration from single to HA routes if the vpn is HA
-            if route[:subnets]
-              target_subnets = route[:subnets]
-            elsif config[:subnet_ids].include?(route[:subnet])
-              target_subnets = config[:subnet_ids]
-            else
-              target_subnets = [*route[:subnet]]
-            end
+        config[:routes].each do |route|
+          
+          if route[:subnets]
+            target_subnets = route[:subnets]
+          elsif config[:subnet_ids].include?(route[:subnet])
+            target_subnets = config[:subnet_ids]
+          else
+            target_subnets = [*route[:subnet]]
+          end
 
+          if route.has_key?(:dns)
             input = { 
               Record: route[:dns],
               ClientVpnEndpointId: "${ClientVpnEndpoint}",
@@ -150,7 +151,7 @@ module CfnVpn
               Description: route[:desc]
             }
             
-            if route[:groups].any?
+            if !route[:groups].nil? && route[:groups].any?
               input[:Groups] = route[:groups]
             end
 
@@ -159,29 +160,48 @@ module CfnVpn
               DependsOn network_assoc_dependson if network_assoc_dependson.any?
               State 'ENABLED'
               Description "cfnvpn auto route populator schedule for #{route[:dns]}"
-              ScheduleExpression "rate(5 minutes)"
+              ScheduleExpression route.fetch(:schedule, 'rate(5 minutes)')
               Targets([
                 { 
                   Arn: FnGetAtt(:CfnVpnAutoRoutePopulator, :Arn),
-                  Id: "auto-route-populator",
+                  Id: "dns-auto-route-populator",
                   Input: FnSub(input.to_json)
                 }
               ])
             }
-          end
-        end
-
-        if cidr_routes.any?
-          cidr_routes.each do |route|
-            # to aide in the migration from single to HA routes if the vpn is HA
-            if route[:subnets]
-              target_subnets = route[:subnets]
-            elsif config[:subnet_ids].include?(route[:subnet])
-              target_subnets = config[:subnet_ids]
-            else
-              target_subnets = [*route[:subnet]]
+          
+          elsif route.has_key?(:cloud)
+            input = { 
+              Cloud: route[:cloud],
+              ClientVpnEndpointId: "${ClientVpnEndpoint}",
+              TargetSubnets: target_subnets,
+              Description: route[:desc]
+            }
+            
+            if !route[:groups].nil? && route[:groups].any?
+              input[:Groups] = route[:groups]
             end
 
+            if !route[:filters].nil? && route[:filters].any?
+              input[:Filters] = route[:filters]
+            end          
+
+            Events_Rule(:"CfnVpnAutoRoutePopulatorEvent#{route[:cloud].resource_safe}"[0..255]) {
+              Condition(:EnableSubnetAssociation)
+              DependsOn network_assoc_dependson if network_assoc_dependson.any?
+              State 'ENABLED'
+              Description "cfnvpn auto route populator schedule for cloud #{route[:cloud]} lookup"
+              ScheduleExpression route.fetch(:schedule, 'rate(5 minutes)')
+              Targets([
+                { 
+                  Arn: FnGetAtt(:CfnVpnAutoRoutePopulator, :Arn),
+                  Id: "cloud-auto-route-populator",
+                  Input: FnSub(input.to_json)
+                }
+              ])
+            }
+
+          elsif route.has_key?(:cidr)
             target_subnets.each do |subnet|
               EC2_ClientVpnRoute(:"#{route[:cidr].resource_safe}VpnRouteTo#{subnet.resource_safe}"[0..255]) {
                 Description "cfnvpn static route for #{route[:cidr]}. #{route[:desc]}".strip
@@ -208,6 +228,7 @@ module CfnVpn
                 TargetNetworkCidr route[:cidr]
               }
             end
+
           end
         end
         
@@ -336,6 +357,7 @@ module CfnVpn
           func: 'auto_route_populator',
           files: [
             'auto_route_populator/app.py',
+            'auto_route_populator/lookup.py',
             'auto_route_populator/quotas.py',
             'lib/slack.py',
             'auto_route_populator/states.py'

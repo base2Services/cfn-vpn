@@ -1,8 +1,8 @@
 import os
-import socket
 import boto3
 from botocore.exceptions import ClientError
 from lib.slack import Slack
+from lookup import dns_lookup, cloud_lookup
 from states import *
 import logging
 from quotas import increase_quota, AUTH_RULE_TABLE_QUOTA_CODE, ROUTE_TABLE_QUOTA_CODE
@@ -26,8 +26,8 @@ def delete_route(client, vpn_endpoint, subnet, cidr):
       raise e
 
   
-def create_route(client, event, cidr, target_subnet):
-  description = f"cfnvpn auto generated route for endpoint {event['Record']}."
+def create_route(client, event, cidr, target_subnet, lookup_item):
+  description = f"cfnvpn auto generated route for lookup {lookup_item}."
   if event['Description']:
     description += f" {event['Description']}"
 
@@ -61,8 +61,8 @@ def revoke_route_auth(client, event, cidr, group = None):
       raise e
 
 
-def authorize_route(client, event, cidr, group = None):
-  description = f"cfnvpn auto generated authorization for endpoint {event['Record']}."
+def authorize_route(client, event, cidr, lookup_item, group = None):
+  description = f"cfnvpn auto generated authorization for lookup {lookup_item}."
   if event['Description']:
     description += f" {event['Description']}"
 
@@ -80,7 +80,7 @@ def authorize_route(client, event, cidr, group = None):
   client.authorize_client_vpn_ingress(**args)
 
 
-def get_routes(client, event):
+def get_routes(client, event, lookup_item):
   paginator = client.get_paginator('describe_client_vpn_routes')
   response_iterator = paginator.paginate(
     ClientVpnEndpointId=event['ClientVpnEndpointId'],
@@ -94,10 +94,10 @@ def get_routes(client, event):
  
   return [route for page in response_iterator 
             for route in page['Routes'] 
-            if 'Description' in route and event['Record'] in route['Description']]
+            if 'Description' in route and lookup_item in route['Description']]
 
 
-def get_auth_rules(client, event):
+def get_auth_rules(client, event, lookup_item):
   paginator = client.get_paginator('describe_client_vpn_authorization_rules')
   response_iterator = paginator.paginate(
     ClientVpnEndpointId=event['ClientVpnEndpointId']
@@ -105,7 +105,7 @@ def get_auth_rules(client, event):
 
   return [rule for page in response_iterator 
             for rule in page['AuthorizationRules']
-            if 'Description' in rule and event['Record'] in rule['Description']]
+            if 'Description' in rule and lookup_item in rule['Description']]
 
 
 def expired_auth_rules(auth_rules, cidrs, groups):
@@ -131,16 +131,27 @@ def handler(event,context):
 
   logger.info(f"auto route populator triggered with event : {event}")
   slack = Slack(username=SLACK_USERNAME)
+
+  lookup_type = None
   
-  # DNS lookup on the dns record and return all IPS for the endpoint
-  try:
-    cidrs = [ ip + "/32" for ip in socket.gethostbyname_ex(event['Record'])[-1]]
-    logger.info(f"resolved endpoint {event['Record']} to {cidrs}")
-  except socket.gaierror as e:
-    logger.error(f"failed to resolve record {event['Record']}", exc_info=True)
-    slack.post_event(message=f"failed to resolve record {event['Record']}", state=RESOLVE_FAILED, error=e)
+  if 'Record' in event:
+    cidrs = dns_lookup(event['Record'])
+    lookup_item = event['Record']
+    if cidrs is None:
+      slack.post_event(message=f"failed to resolve record {event['Record']}", state=RESOLVE_FAILED)
+    logger.info(f"dns lookup found {len(cidrs)} IP's")
+  elif 'Cloud' in event:
+    cidrs = cloud_lookup(event['Cloud'], event.get('Filters', []))
+    lookup_item = f"cloud:{event['Cloud']}"
+    logger.info(f"cloud {event['Cloud']} lookup found {len(cidrs)} IP address ranges")
+  else:
+    logger.error("one of [ Record | Cloud ] not found in event")
     return 'KO'
-  
+
+  if not cidrs:
+    logger.error(f"no cidrs found")
+    return 'KO'
+
   client = boto3.client('ec2')
 
   # describe vpn and check if subnets are associated with the vpn
@@ -150,17 +161,17 @@ def handler(event,context):
 
   if not response['ClientVpnEndpoints']:
     logger.error(f"endpoint not found")
-    slack.post_event(message=f"failed create routes for {event['Record']}", state=FAILED, error="endpoint not found")
+    slack.post_error(lookup_item, FAILED, "endpoint not found")
     return 'KO'
 
   endpoint = response['ClientVpnEndpoints'][0]
   if endpoint['Status'] == 'pending-associate':
     logger.error(f"no subnets associated with endpoint")
-    slack.post_event(message=f"failed create routes for {event['Record']}", state=FAILED, error="vpn is in a stopped state")
+    slack.post_error(lookup_item, FAILED, "vpn is in a stopped state")
     return 'KO'
 
-  routes = get_routes(client, event)
-  auth_rules = get_auth_rules(client, event)
+  routes = get_routes(client, event, lookup_item)
+  auth_rules = get_auth_rules(client, event, lookup_item)
 
   auto_limit_increase = os.environ.get('AUTO_LIMIT_INCREASE')
   route_limit_increase_required = False
@@ -171,28 +182,20 @@ def handler(event,context):
     for subnet in event['TargetSubnets']:
       if not any(route['DestinationCidr'] == cidr and route['TargetSubnet'] == subnet for route in routes):
         try:
-          create_route(client, event, cidr, subnet)
+          create_route(client, event, cidr, subnet, lookup_item)
         except ClientError as e:
           if e.response['Error']['Code'] == 'ClientVpnRouteLimitExceeded':
             route_limit_increase_required = True
             logger.error("vpn route table has reached the route limit", exc_info=True)
-            slack.post_event(
-              message=f"unable to create route {cidr} from {event['Record']}",
-              state=ROUTE_LIMIT_EXCEEDED,
-              error="vpn route table has reached the route limit"
-            )
+            slack.post_error(lookup_item, ROUTE_LIMIT_EXCEEDED, "vpn route table has reached the route limit")
           elif e.response['Error']['Code'] == 'InvalidClientVpnActiveAssociationNotFound':
             logger.warn("no subnets are associated with the vpn", exc_info=True)
-            slack.post_event(
-              message=f"unable to create the route {cidr} from {event['Record']}", 
-              state=SUBNET_NOT_ASSOCIATED,
-              error="no subnets are associated with the vpn"
-            )
+            slack.post_error(lookup_item, SUBNET_NOT_ASSOCIATED, "no subnets are associated with the vpn")
           else:
             logger.error("encountered a unexpected client error when creating a route", exc_info=True)
         else:
           slack.post_event(
-            message=f"created new route {cidr} ({event['Record']}) to target subnet {subnet}",
+            message=f"created new route {cidr} ({lookup_item}) to target subnet {subnet}",
             state=NEW_ROUTE
           )
     
@@ -211,18 +214,18 @@ def handler(event,context):
         new_groups = [group for group in event['Groups'] if group not in existing_groups]
 
         for group in new_groups:
-          authorize_route(client, event, cidr, group)
+          authorize_route(client, event, cidr, lookup_item, group)
 
       # create an allow all rule
       elif 'Groups' not in event and not cidr_auth_rules:
-        authorize_route(client, event, cidr)
+        authorize_route(client, event, cidr, lookup_item)
 
     except ClientError as e:
         if e.response['Error']['Code'] == 'ClientVpnAuthorizationRuleLimitExceeded':
           auth_rules_limit_increase_required = True
           logger.error("vpn has reached the authorization rule limit", exc_info=True)
           slack.post_event(
-            message=f"unable add to authorization rule for route {cidr} from {event['Record']}",
+            message=f"unable add to authorization rule for route {cidr} from lookup {lookup_item}",
             state=AUTH_RULE_LIMIT_EXCEEDED,
             error="vpn has reached the authorization rule limit"
           )
@@ -248,13 +251,13 @@ def handler(event,context):
 
   # remove expired auth rules
   for rule in expired_auth_rules(auth_rules, cidrs, event.get('Groups', [])):
-    logger.info(f"removing expired auth rule {rule['DestinationCidr']} for endpoint {event['Record']}")
+    logger.info(f"removing expired auth rule {rule['DestinationCidr']} for lookup {lookup_item}")
     revoke_route_auth(client, event, rule['DestinationCidr'])
 
   # remove expired routes
   for route in expired_routes(routes, cidrs):
-    logger.info(f"removing expired route {route['DestinationCidr']} for endpoint {event['Record']}")
+    logger.info(f"removing expired route {route['DestinationCidr']} for lookup {lookup_item}")
     delete_route(client, event['ClientVpnEndpointId'], route['TargetSubnet'], route['DestinationCidr'])
-    slack.post_event(message=f"removed expired route {route['DestinationCidr']} for endpoint {event['Record']}", state=EXPIRED_ROUTE)
+    slack.post_event(message=f"removed expired route {route['DestinationCidr']} for lookup {lookup_item}", state=EXPIRED_ROUTE)
   
   return 'OK'

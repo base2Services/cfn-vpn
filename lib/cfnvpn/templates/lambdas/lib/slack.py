@@ -12,6 +12,9 @@ class Slack:
         self.username = username
         self.slack_url = os.environ.get('SLACK_URL')
 
+    def post_error(self, lookup_item, state, error):
+        self.post_event(message=f"failed create routes for lookup {lookup_item}", state=state, error=error)
+
     def post_event(self, message, state, error=None, support_case=None):
         """Posts event to slack using an incoming webhook
         Parameters
