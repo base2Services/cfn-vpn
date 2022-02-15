@@ -29,12 +29,12 @@ cfn-vpn params [name] --diff-yaml cfnvpn.[name].yaml
 
 ## Modifying
 
-### With CLI Options
+### With YAML File
 
-to modify the VPN properties run the modify command with the desired options
+cfn-vpn configuration can be managed through a YAML file using the `modify` command to apply the config changes to the vpn stack. See the [YAML docs](yaml-config.md) for config options.
 
 ```
-cfn-vpn modify [name] --dns-servers 10.15.0.2
+cfn-vpn modify [name] --params-yaml cfnvpn.[name].yaml
 ```
 
 a cloudformation changeset is created with the desired changes and approval is asked
@@ -60,8 +60,10 @@ INFO: - Changeset UPDATE complete
 INFO: - Client VPN [endpoint-id] modified
 ```
 
-### With YAML File
+### With CLI Options
+
+to modify the VPN properties run the modify command with the desired options
 
 ```
-cfn-vpn modify [name] --params-yaml cfnvpn.[name].yaml
+cfn-vpn modify [name] --dns-servers 10.15.0.2
 ```

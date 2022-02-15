@@ -12,9 +12,18 @@ https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX
 
 Next modify your VPN stack using the modify command and pass in url
 
+**CLI**
+
 ```sh
 cfn-vpn modify [name] --slack-webhook-url "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX"
 ```
+
+**YAML**
+
+```yaml
+slack_webhook_url: https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX
+```
+
 
 ## Route Events
 
