@@ -5,7 +5,7 @@
 Install `cfn-vpn` gem
 
 ```bash
-gem install cfn-vpn --source "https://rubygems.pkg.github.com/base2services"
+gem install cfn-vpn
 ```
 
 ## Setup Easy-RSA
