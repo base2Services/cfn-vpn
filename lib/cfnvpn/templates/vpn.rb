@@ -235,7 +235,7 @@ module CfnVpn
         SSM_Parameter(:CfnVpnConfig) {
           Description "#{name} cfnvpn config"
           Name "/cfnvpn/config/#{name}"
-          Tier 'Standard'
+          Tier 'Intelligent-Tiering'
           Type 'String'
           Value config.to_json
           Tags({
