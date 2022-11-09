@@ -40,6 +40,8 @@ routes:
 
 Dynamic DNS routes takes a dns endpoint and will query the record every 5 minutes to see if the IPs have changed and update the routes in the vpn route table.
 
+**NOTE** This should not be used for cloutfront endpoints
+
 #### CLI Commands
 
 new route run the routes command along with the `--dns` option
