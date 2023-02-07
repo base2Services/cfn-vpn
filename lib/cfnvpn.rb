@@ -10,6 +10,7 @@ require 'cfnvpn/actions/share'
 require 'cfnvpn/actions/embedded'
 require 'cfnvpn/actions/subnets'
 require 'cfnvpn/actions/params'
+require 'cfnvpn/actions/renew_certificate'
 
 module CfnVpn
   class Cli < Thor
@@ -22,6 +23,9 @@ module CfnVpn
 
     register CfnVpn::Actions::Init, 'init', 'init [name]', 'Create a AWS Client VPN'
     tasks["init"].options = CfnVpn::Actions::Init.class_options
+
+    register CfnVpn::Actions::RenewCertificate, 'renew', 'renew [name]', 'Renews a Server and Client certificates from the existing CA'
+    tasks["renew"].options = CfnVpn::Actions::RenewCertificate.class_options
 
     register CfnVpn::Actions::Modify, 'modify', 'modify [name]', 'Modify your AWS Client VPN'
     tasks["modify"].options = CfnVpn::Actions::Modify.class_options
