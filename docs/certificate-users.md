@@ -11,6 +11,13 @@ It will be bundled into a tar and stored encrypted in your provided s3 bucket.
 cfn-vpn client myvpn --client-cn user1 --bucket mybucket
 ```
 
+## Short Term Client
+
+By default the expiry of client certificate is 825 days. You can shorten this value with the `--certificate-expiry` flag specify a int value in days for how long you want the certificate to stay valid.
+
+```
+cfn-vpn client myvpn --client-cn user1 --bucket mybucket --certificate-expiry 7
+```
 
 ## Revoke a user
 

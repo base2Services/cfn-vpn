@@ -21,6 +21,7 @@ module CfnVpn::Actions
     class_option :server_cn, required: true, desc: 'server certificate common name'
     class_option :client_cn, desc: 'client certificate common name'
     class_option :easyrsa_local, type: :boolean, default: false, desc: 'run the easyrsa executable from your local rather than from docker'
+    class_option :certificate_expiry, type: :string, desc: 'value in days for when the server certificates expire, defaults to 825 days'
     class_option :bucket, desc: 's3 bucket, if not set one will be generated for you'
 
     class_option :subnet_ids, required: true, type: :array, desc: 'subnet id to associate your vpn with'
@@ -115,7 +116,7 @@ module CfnVpn::Actions
       CfnVpn::Log.logger.info "Generating certificates using openvpn easy-rsa"
       cert = CfnVpn::Certificates.new(@build_dir,@name,@options['easyrsa_local'])
       @client_cn = @options['client_cn'] ? @options['client_cn'] : "client-vpn.#{@options['server_cn']}"
-      cert.generate_ca(@options['server_cn'],@client_cn)
+      cert.generate_ca(@options['server_cn'],@client_cn,@options['certificate_expiry'])
     end
 
     def upload_certificates

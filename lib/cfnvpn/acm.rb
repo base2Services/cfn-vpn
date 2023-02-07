@@ -23,13 +23,15 @@ module CfnVpn
     end
 
     def tag_certificate(arn,name,type,cfnvpn_name)
+      tags = [
+        { key: "Name", value: name },
+        { key: "cfnvpn:name", value: cfnvpn_name },
+        { key: "cfnvpn:certificate:type", value: type }
+      ]
+
       @client.add_tags_to_certificate({
         certificate_arn: arn,
-        tags: [
-          { key: "Name", value: name },
-          { key: "cfnvpn:name", value: cfnvpn_name },
-          { key: "cfnvpn:certificate:type", value: type }
-        ]
+        tags: tags
       })
     end
 
@@ -37,13 +39,20 @@ module CfnVpn
       File.read("#{@cert_dir}/#{cert}")
     end
 
-    def certificate_exists?(name)
-      return true
-    end
+    def get_certificate_tags(certificate_arn,key=nil)
+      resp = @client.list_tags_for_certificate({
+        certificate_arn: certificate_arn
+      })
 
-    def get_certificate(name)
-      return 'arn'
-    end
+      if key.nil?
+        return resp.tags
+      else
+        resp.tags.each do |tag|
+          return tag.value if tag.key == key
+        end
 
+        raise "no tag key #{key} matched the certificate #{certificate_arn}"
+      end
+    end
   end
 end
