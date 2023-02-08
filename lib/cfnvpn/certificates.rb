@@ -48,6 +48,65 @@ module CfnVpn
       end
     end
 
+    def renew(server_cn,client_cn,expiry=nil)
+      opts = ""
+      unless expiry.nil?
+        opts += "--days=#{expiry}"
+      end
+
+      if @easyrsa_local
+        ENV["EASYRSA_REQ_CN"] = server_cn
+        ENV["EASYRSA_PKI"] = @pki_dir
+        system("tar xzfv #{@cert_dir}/ca.tar.gz --directory #{@build_dir}")
+        system("easyrsa #{opts} renew server nopass")
+        system("easyrsa #{opts} renew #{client_cn} nopass")
+        FileUtils.cp(["#{@pki_dir}/ca.crt", "#{@pki_dir}/issued/server.crt", "#{@pki_dir}/private/server.key", "#{@pki_dir}/issued/#{client_cn}.crt", "#{@pki_dir}/private/#{client_cn}.key"], @cert_dir)
+        system("tar czfv #{@cert_dir}/ca.tar.gz -C #{@build_dir} pki/")
+      else
+        @docker_cmd << "-e EASYRSA_REQ_CN=#{server_cn}"
+        @docker_cmd << "-e EASYRSA_CLIENT_CN=#{client_cn}"
+        @docker_cmd << "-e EASYRSA_OPTS=\"#{opts}\""
+        @docker_cmd << "-v #{@cert_dir}:/easy-rsa/output"
+        @docker_cmd << @easyrsa_image
+        @docker_cmd << "sh -c 'renew'"
+        CfnVpn::Log.logger.debug `#{@docker_cmd.join(' ')}`
+      end
+    end
+
+    def rebuild(server_cn,client_cn,expiry=nil)
+      timestamp = Time.now.getutc.to_i
+      opts = ""
+      unless expiry.nil?
+        opts += "--days=#{expiry}"
+      end
+
+      if @easyrsa_local
+        ENV["EASYRSA_REQ_CN"] = server_cn
+        ENV["EASYRSA_PKI"] = @pki_dir
+        system("tar xzfv #{@cert_dir}/ca.tar.gz --directory #{@build_dir}")
+
+        FileUtils.mv("#{@pki_dir}/reqs/server.req", "#{@pki_dir}/reqs/server.req.bak-#{timestamp}")
+        FileUtils.mv("#{@pki_dir}/issued/server.crt", "#{@pki_dir}/issued/server.req.bak-#{timestamp}")
+        FileUtils.mv("#{@pki_dir}/private/server.key", "#{@pki_dir}/private/server.req.bak-#{timestamp}")
+        FileUtils.mv("#{@pki_dir}/reqs/#{client_cn}.req", "#{@pki_dir}/reqs/#{client_cn}.req.bak-#{timestamp}")
+        FileUtils.mv("#{@pki_dir}/issued/#{client_cn}.crt", "#{@pki_dir}/issued/#{client_cn}.req.bak-#{timestamp}")
+        FileUtils.mv("#{@pki_dir}/private/#{client_cn}.key", "#{@pki_dir}/private/#{client_cn}.req.bak-#{timestamp}")
+
+        system("easyrsa #{opts} build-server-full server nopass")
+        system("easyrsa #{opts} build-client-full #{client_cn} nopass")
+        FileUtils.cp(["#{@pki_dir}/ca.crt", "#{@pki_dir}/issued/server.crt", "#{@pki_dir}/private/server.key", "#{@pki_dir}/issued/#{client_cn}.crt", "#{@pki_dir}/private/#{client_cn}.key"], @cert_dir)
+        system("tar czfv #{@cert_dir}/ca.tar.gz -C #{@build_dir} pki/")
+      else
+        @docker_cmd << "-e EASYRSA_REQ_CN=#{server_cn}"
+        @docker_cmd << "-e EASYRSA_CLIENT_CN=#{client_cn}"
+        @docker_cmd << "-e EASYRSA_OPTS=\"#{opts}\""
+        @docker_cmd << "-v #{@cert_dir}:/easy-rsa/output"
+        @docker_cmd << @easyrsa_image
+        @docker_cmd << "sh -c 'rebuild'"
+        CfnVpn::Log.logger.debug `#{@docker_cmd.join(' ')}`
+      end
+    end
+
     def generate_client(client_cn)
       if @easyrsa_local
         ENV["EASYRSA_PKI"] = @pki_dir
