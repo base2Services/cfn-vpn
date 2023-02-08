@@ -36,8 +36,9 @@ module CfnVpn
 
     def create_build_directory
       @build_dir = "#{CfnVpn.cfnvpn_path}/#{@name}"
-      Log.logger.debug "creating directory #{@build_dir}"
-      FileUtils.mkdir_p(@build_dir)
+      @cert_dir = "#{@build_dir}/certificates"
+      Log.logger.debug "creating directory #{@cert_dir}"
+      FileUtils.mkdir_p(@cert_dir)
     end
 
     def initialize_config
@@ -60,12 +61,14 @@ module CfnVpn
 
     # create certificates
     def generate_server_certificates
+      s3 = CfnVpn::S3.new(@options['region'],@options['bucket'],@name)
+      s3.get_object("#{@cert_dir}/ca.tar.gz")
       cert = CfnVpn::Certificates.new(@build_dir,@name,@options['easyrsa_local'])
       if @options['rebuild']
         Log.logger.info "rebuilding certificates using openvpn easy-rsa"
         cert.rebuild(@options['server_cn'],@client_cn,@options['certificate_expiry'])
       else
-        Log.logger.info "rebuilding certificates using openvpn easy-rsa"
+        Log.logger.info "renewing certificates using openvpn easy-rsa"
         cert.renew(@options['server_cn'],@client_cn,@options['certificate_expiry'])
       end
     end
