@@ -83,7 +83,7 @@ module CfnVpn
           network_assoc_dependson << "ClientVpnTargetNetworkAssociation#{suffix}"
         end
 
-        if config[:default_groups].any?
+        if !config[:default_groups].nil? && config[:default_groups].any?
           config[:default_groups].each do |group|
             EC2_ClientVpnAuthorizationRule(:"TargetNetworkAuthorizationRule#{group.resource_safe}"[0..255]) {
               Condition(:EnableSubnetAssociation)
