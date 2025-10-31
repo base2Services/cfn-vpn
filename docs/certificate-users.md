@@ -25,6 +25,7 @@ This will revoke the client certificate and apply to the client VPN endpoint.
 Note this wont terminate the session but will stop the client from reconnecting using the certificate.
 
 ```sh
+# please ensure that you are using the latest cfn-vpn version before revoking cert since previous versions have issues maintaining the CRL
 cfn-vpn revoke myvpn --client-cn user1 --bucket mybucket
 ```
 
