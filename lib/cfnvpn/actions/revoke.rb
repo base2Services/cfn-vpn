@@ -38,6 +38,12 @@ module CfnVpn::Actions
       s3.get_object("#{@cert_dir}/#{@options['client_cn']}.tar.gz")
       CfnVpn::Log.logger.info "Generating new client certificate #{@options['client_cn']} using openvpn easy-rsa"
       CfnVpn::Log.logger.debug cert.revoke_client(@options['client_cn'])
+      
+      # persist index.txt which contains previous CRL back to s3
+      system("tar xzfv #{@cert_dir}/ca.tar.gz --directory #{@build_dir}")
+      FileUtils.cp(["#{@cert_dir}/index.txt"], "#{@build_dir}/pki/")
+      system("tar czfv #{@cert_dir}/ca.tar.gz -C #{@build_dir} pki/")
+      s3.store_object("#{@cert_dir}/ca.tar.gz")
     end
 
     def apply_rekocation_list
