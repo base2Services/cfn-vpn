@@ -142,11 +142,12 @@ module CfnVpn
         system("easyrsa revoke #{client_cn}")
         system("easyrsa gen-crl")
         FileUtils.cp("#{@pki_dir}/crl.pem", @cert_dir)
+        FileUtils.cp("#{@pki_dir}/index.txt", @cert_dir)
       else
         @docker_cmd << "-e EASYRSA_CLIENT_CN=#{client_cn}"
         @docker_cmd << "-v #{@cert_dir}:/easy-rsa/output"
         @docker_cmd << @easyrsa_image
-        @docker_cmd << "sh -c 'revoke-client'"
+        @docker_cmd << "sh -c 'revoke-client && cp pki/index.txt output/index.txt'"
         CfnVpn::Log.logger.debug `#{@docker_cmd.join(' ')}`
       end
     end

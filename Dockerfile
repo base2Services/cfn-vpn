@@ -9,7 +9,7 @@ RUN apt-get update -qq \
 ENV EASYRSA=/usr/share/easy-rsa
 ENV EASYRSA_BATCH=yes
 
-ARG CFNVPN_VERSION="1.6.0"
+ARG CFNVPN_VERSION="1.7.0"
 
 COPY . /src
 
