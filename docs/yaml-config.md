@@ -7,7 +7,7 @@ cfn-vpn configuration can be managed through a YAML file using the `modify` comm
 run the `modify` command and supply the yaml file to apply the changes
 
 ```sh
-cfn-vpn routes [name] --params-yaml cfnvpn.[name].yaml
+cfn-vpn routes [name] --param-yaml cfnvpn.[name].yaml
 ```
 
 ## Dump Current Config to YAML File
