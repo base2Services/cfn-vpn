@@ -73,7 +73,8 @@ module CfnVpn::Actions
 
       if @options[:param_yaml]
         CfnVpn::Log.logger.debug "Loading config from YAML file #{@options[:param_yaml]}"
-        @config = CfnVpn::Config.get_config_from_yaml_file(@options[:param_yaml])
+        yaml_config = CfnVpn::Config.get_config_from_yaml_file(@options[:param_yaml])
+        @config = @config.merge(yaml_config)
       else
         CfnVpn::Log.logger.debug "Loading config from options"
         @options.each do |key, value|
