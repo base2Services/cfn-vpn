@@ -1,4 +1,4 @@
 module CfnVpn
-  VERSION = "1.8.0".freeze
+  VERSION = "1.9.0".freeze
   CHANGE_SET_VERSION = VERSION.gsub('.', '-').freeze
 end

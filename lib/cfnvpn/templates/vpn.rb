@@ -203,7 +203,12 @@ module CfnVpn
 
           elsif route.has_key?(:cidr)
             target_subnets.each do |subnet|
+              # routes are tied to the subnet association: aws deletes them when the
+              # target network is disassociated, so they must be conditioned on the
+              # association to stay in sync with it.
               EC2_ClientVpnRoute(:"#{route[:cidr].resource_safe}VpnRouteTo#{subnet.resource_safe}"[0..255]) {
+                Condition(:EnableSubnetAssociation)
+                DependsOn network_assoc_dependson if network_assoc_dependson.any?
                 Description "cfnvpn static route for #{route[:cidr]}. #{route[:desc]}".strip
                 ClientVpnEndpointId Ref(:ClientVpnEndpoint)
                 DestinationCidrBlock route[:cidr]
