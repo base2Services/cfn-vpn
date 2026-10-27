@@ -126,6 +126,8 @@ module CfnVpn
         FileUtils.mv("#{@pki_dir}/issued/#{client_cn}.crt", "#{@pki_dir}/issued/#{client_cn}.req.bak-#{timestamp}")
         FileUtils.mv("#{@pki_dir}/private/#{client_cn}.key", "#{@pki_dir}/private/#{client_cn}.req.bak-#{timestamp}")
 
+        # easyrsa 3.1+ rejects build-*-full while an external commonName is set
+        ENV.delete("EASYRSA_REQ_CN")
         system("easyrsa #{opts} build-server-full server nopass")
         system("easyrsa #{opts} build-client-full #{client_cn} nopass")
         FileUtils.cp(["#{@pki_dir}/ca.crt", "#{@pki_dir}/issued/server.crt", "#{@pki_dir}/private/server.key", "#{@pki_dir}/issued/#{client_cn}.crt", "#{@pki_dir}/private/#{client_cn}.key"], @cert_dir)

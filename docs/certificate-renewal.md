@@ -56,10 +56,18 @@ remote kdipkcte.cvpn-endpoint-<replace-id>.prod.clientvpn.<aws-region>.amazonaws
 
 ## VPNs Using Federated Access
 
-run the renew command with the default options
+run the renew command using your local easyrsa
 
 ```sh
-cfn-vpn renew [name] --bucket [s3-bucket]
+cfn-vpn renew [name] --bucket [s3-bucket] --easyrsa-local
+```
+
+The `--easyrsa-local` flag is required, the docker image scripts expect a client certificate common name which federated VPNs don't have.
+
+easyrsa will prompt for confirmation while creating the new CA, set `EASYRSA_BATCH=1` for unattended runs
+
+```sh
+EASYRSA_BATCH=1 cfn-vpn renew [name] --bucket [s3-bucket] --easyrsa-local
 ```
 
 This will recreate the vpn with the updated server certificate.
