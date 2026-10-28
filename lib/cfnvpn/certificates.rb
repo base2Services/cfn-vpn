@@ -39,9 +39,16 @@ module CfnVpn
         ENV["EASYRSA_PKI"] = @pki_dir
         system("easyrsa init-pki")
         system("easyrsa build-ca nopass")
+        # easyrsa 3.1+ rejects build-*-full while an external commonName is set
+        ENV.delete("EASYRSA_REQ_CN")
         system("easyrsa #{opts} build-server-full server nopass")
-        system("easyrsa #{opts} build-client-full #{client_cn} nopass")
-        FileUtils.cp(["#{@pki_dir}/ca.crt", "#{@pki_dir}/issued/server.crt", "#{@pki_dir}/private/server.key", "#{@pki_dir}/issued/#{client_cn}.crt", "#{@pki_dir}/private/#{client_cn}.key"], @cert_dir)
+        certs = ["#{@pki_dir}/ca.crt", "#{@pki_dir}/issued/server.crt", "#{@pki_dir}/private/server.key"]
+        # federated vpns only need the server certificate
+        unless client_cn.nil?
+          system("easyrsa #{opts} build-client-full #{client_cn} nopass")
+          certs.push("#{@pki_dir}/issued/#{client_cn}.crt", "#{@pki_dir}/private/#{client_cn}.key")
+        end
+        FileUtils.cp(certs, @cert_dir)
         system("tar czfv #{@cert_dir}/ca.tar.gz -C #{@build_dir} pki/")
       else
         @docker_cmd << "-e EASYRSA_REQ_CN=#{server_cn}"
@@ -119,6 +126,8 @@ module CfnVpn
         FileUtils.mv("#{@pki_dir}/issued/#{client_cn}.crt", "#{@pki_dir}/issued/#{client_cn}.req.bak-#{timestamp}")
         FileUtils.mv("#{@pki_dir}/private/#{client_cn}.key", "#{@pki_dir}/private/#{client_cn}.req.bak-#{timestamp}")
 
+        # easyrsa 3.1+ rejects build-*-full while an external commonName is set
+        ENV.delete("EASYRSA_REQ_CN")
         system("easyrsa #{opts} build-server-full server nopass")
         system("easyrsa #{opts} build-client-full #{client_cn} nopass")
         FileUtils.cp(["#{@pki_dir}/ca.crt", "#{@pki_dir}/issued/server.crt", "#{@pki_dir}/private/server.key", "#{@pki_dir}/issued/#{client_cn}.crt", "#{@pki_dir}/private/#{client_cn}.key"], @cert_dir)

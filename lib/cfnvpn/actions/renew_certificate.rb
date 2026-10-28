@@ -75,9 +75,9 @@ module CfnVpn::Actions
           cert.renew(@config[:server_cn],@client_cn,@options['certificate_expiry'])
         end
       else
-        CfnVpn::Log.logger.info "recreating server and #{@client_cn} certificates with a new CA"
+        CfnVpn::Log.logger.info "recreating server certificate with a new CA"
         cert = CfnVpn::Certificates.new(@build_dir,@name,@options['easyrsa_local'])
-        cert.generate_ca(@options['server_cn'],@options['certificate_expiry'])
+        cert.generate_ca(@config[:server_cn],nil,@options['certificate_expiry'])
       end
     end
 
